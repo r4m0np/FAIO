@@ -406,7 +406,7 @@ function FAIO_dodgeIT.dodgerSkillAvailable(myHero)
 
 		for i = 1, #FAIO_data.dodgeItSkills do
 			if NPC.HasAbility(myHero, FAIO_data.dodgeItSkills[i][1]) then
-				if Menu.IsEnabled(FAIO_dodgeIT.dodgeEnemyHeroskillsOptionsTable[FAIO_data.dodgeItSkills[i][1]]) then
+				if Menu.IsEnabled(FAIO_options.dodgeEnemyHeroskillsOptionsTable[FAIO_data.dodgeItSkills[i][1]]) then
 					if Ability.GetLevel(NPC.GetAbility(myHero, FAIO_data.dodgeItSkills[i][1])) > 0 then
 						table.insert(FAIO_dodgeIT.dodgeItSkillReady, {skillname = FAIO_data.dodgeItSkills[i][1], skillstyle = FAIO_data.dodgeItSkills[i][2], skilltargeting = FAIO_data.dodgeItSkills[i][3], skilloffset = FAIO_data.dodgeItSkills[i][4] })
 					end

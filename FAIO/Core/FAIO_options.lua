@@ -5,9 +5,6 @@ local FAIO_data = require("FAIO/Core/FAIO_data")
 
 -- Menu Items
 	-- general Menu
-FAIO_options.versionNumber = Menu.AddOption({ ".FAIO" }, "0. Version Number: beta.0.98.10d", "Release date: 2018/01/29", 0, 0, 0)
-Menu.SetValueName(FAIO_options.versionNumber, 0, '')
-
 FAIO_options.optionEnable = Menu.AddOption({ ".FAIO" }, "1. Overall enabled {{overall}}", "Helpers helper")
 FAIO_options.optionComboKey = Menu.AddKeyOption({ ".FAIO" }, "1.1 overall combo key", Enum.ButtonCode.KEY_SPACE)
 FAIO_options.optionTargetStyle = Menu.AddOption({ ".FAIO", "1.2 Target selector" }, "0. Targeting style {{overall targeting}}", "", 0, 1, 1)
@@ -54,16 +51,17 @@ FAIO_options.optionLastHitOrb = Menu.AddOption({ ".FAIO", "97. <BETA> Last Hitte
 FAIO_options.optionLastHitOrbMana = Menu.AddOption({ ".FAIO", "97. <BETA> Last Hitter", "6. Use orb attacks" }, "2. Mana treshold {{lasthit orbs}}", "below treshold it will not use orb attacks", 5, 75, 5)
 
 	-- killsteal Menu
-FAIO_options.optionKillStealEnable = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal" }, "Enabled {{killsteal}}", "uses skill nukes to kill enemy (only nukes, no disable abilities)")
-FAIO_options.optionKillStealInvoker = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "1. Auto Sunstrike KillSteal", "tries to kill steal with sun strike")
-FAIO_options.optionKillStealInvokerTurn = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "5.2 Turn check adjustment", "amount of game ticks enemy must run in a straight line (30 ticks ~ 1 sec)", 10, 60, 5)
-FAIO_options.optionKillStealAutoInvoke = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "5.1 Auto Invoke Sunstrike", "will auto invoke SS if not in slot and enemy killable")
-FAIO_options.optionKillStealInvokerTPpartice = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "3. Killsteal on TPing enemies", "will kill tp'ing enemies if enemy HP is below DMG treshold")
-FAIO_options.optionKillStealInvokerImmobil = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "2. Killsteal on immobilized enemies", "will kill immobilized enemies if enemy HP is below DMG treshold")
-FAIO_options.optionKillStealInvokerTreshold = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "5.3 HP Treshold adjust {{KS invo}}", "will start casting sunstrike before HP is below sunstrike dmg (for incoming attacks e.g. from team) (in % of sunstrike dmg)", 0, 25, 5)
-FAIO_options.optionKillStealInvokerRunning = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "4. Killsteal on moving targets", "will try to kill moving enemies if enemy HP is below DMG treshold")
-FAIO_options.optionHeroInvokerCataKS = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "6. Killsteal with cataclysm", "will cast cataclysm if enabled and enough targets killable")
-FAIO_options.optionHeroInvokerCataKSCount = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "Invoker" }, "6.1 Cataclysm target count", "minimum enemies killable", 1, 5, 1)
+FAIO_options.optionKillStealEnable = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal" }, "0. Killsteal with nuke skills {{killsteal}}", "uses skill nukes to kill enemy (only nukes, no disable abilities)")
+FAIO_options.optionKillStealEnableItems = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal" }, "1. Killsteal with nuke items {{killsteal}}", "uses eblade and dagon for ks, also combines both of them")
+FAIO_options.optionKillStealInvoker = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "1. Auto Sunstrike KillSteal", "tries to kill steal with sun strike")
+FAIO_options.optionKillStealInvokerTurn = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "5.2 Turn check adjustment", "amount of game ticks enemy must run in a straight line (30 ticks ~ 1 sec)", 10, 60, 5)
+FAIO_options.optionKillStealAutoInvoke = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "5.1 Auto Invoke Sunstrike", "will auto invoke SS if not in slot and enemy killable")
+FAIO_options.optionKillStealInvokerTPpartice = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "3. Killsteal on TPing enemies", "will kill tp'ing enemies if enemy HP is below DMG treshold")
+FAIO_options.optionKillStealInvokerImmobil = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "2. Killsteal on immobilized enemies", "will kill immobilized enemies if enemy HP is below DMG treshold")
+FAIO_options.optionKillStealInvokerTreshold = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "5.3 HP Treshold adjust {{KS invo}}", "will start casting sunstrike before HP is below sunstrike dmg (for incoming attacks e.g. from team) (in % of sunstrike dmg)", 0, 25, 5)
+FAIO_options.optionKillStealInvokerRunning = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "4. Killsteal on moving targets", "will try to kill moving enemies if enemy HP is below DMG treshold")
+FAIO_options.optionHeroInvokerCataKS = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "6. Killsteal with cataclysm", "will cast cataclysm if enabled and enough targets killable")
+FAIO_options.optionHeroInvokerCataKSCount = Menu.AddOption({ ".FAIO", "5. Auto Kill Steal", "2. Invoker" }, "6.1 Cataclysm target count", "minimum enemies killable", 1, 5, 1)
 
 	-- Items Menu
 FAIO_options.optionItemEnable = Menu.AddOption({ ".FAIO", "2. Item Usage", "1. Offensive items" }, "0. Enabled {{off items}}", "Helpers helper")

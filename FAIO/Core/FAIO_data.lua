@@ -41,7 +41,7 @@ FAIO_data.heroList = {
 	"npc_dota_hero_witch_doctor",
 	"npc_dota_hero_shadow_shaman",
 	"npc_dota_hero_death_prophet",
---	"npc_dota_hero_crystal_maiden",
+	"npc_dota_hero_crystal_maiden",
 	"npc_dota_hero_lion",
 	"npc_dota_hero_pugna",
 	"npc_dota_hero_undying",

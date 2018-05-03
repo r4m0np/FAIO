@@ -16,6 +16,9 @@ function FAIO_centaur.combo(myHero, enemy)
 
 	local myMana = NPC.GetMana(myHero)
 
+	if not enemy then return end
+	if not NPC.IsEntityInRange(myHero, enemy, 3000)	then return end
+
 	local cursorCheck
 	if Menu.IsEnabled(FAIO_options.optionHeroCentaurForceBlink) then
 		if NPC.IsPositionInRange(enemy, Input.GetWorldCursorPos(), Menu.GetValue(FAIO_options.optionHeroCentaurForceBlinkRange)-1, 0) then
@@ -26,23 +29,19 @@ function FAIO_centaur.combo(myHero, enemy)
 	else
 		cursorCheck = true
 	end
-
-	if not NPC.IsEntityInRange(myHero, enemy, 3000)	then return end
 	
 	FAIO_itemHandler.itemUsage(myHero, enemy)
 
-	local stunRange = 315
+	local stunRange = 285
 		if NPC.IsRunning(enemy) then
-			if not blink then
-				stunRange = 175
+			if not NPC.HasItem(myHero, "item_blink", true) then
+				stunRange = 170
 			else
-				if Ability.SecondsSinceLastUse(blink) > 0.75 then
-					stunRange = 175
+				if Ability.SecondsSinceLastUse(NPC.GetItem(myHero, "item_blink", true)) > 0.75 then
+					stunRange = 170
 				end
 			end
 		end
-
-	FAIO_itemHandler.itemUsage(myHero, enemy)
 
 	local switch = FAIO_centaur.comboExecutionTimer(myHero)
 
@@ -63,29 +62,25 @@ end
 
 function FAIO_centaur.comboExecute(myHero, enemy, myMana, stunRange)
 
-	if FAIO_centaur.heroCanCastSpells(myHero, enemy) == true then
+	if Menu.GetValue(FAIO_options.optionHeroCentaurJump) == 0 then
+		FAIO_centaur.blinkHandler(myHero, enemy, stunRange, 0, false)
+	else
+		FAIO_centaur.blinkHandler(myHero, enemy, stunRange, 0, true, stunRange)
+	end
 
-		if Menu.GetValue(FAIO_options.optionHeroCentaurJump) == 0 then
-			FAIO_centaur.blinkHandler(myHero, enemy, stunRange, 0, false)
-		else
-			FAIO_centaur.blinkHandler(myHero, enemy, stunRange, 0, true, stunRange)
-		end
+	if FAIO_skillHandler.skillIsCastable(hoofStomp, stunRange, enemy, nil, false) then
+		FAIO_skillHandler.executeSkillOrder(hoofStomp)		
+		return
+	end
 
-		if hoofStomp and Ability.IsCastable(hoofStomp, myMana) and NPC.IsEntityInRange(myHero, enemy, stunRange) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then 
-			FAIO_centaur.executeSkillOrder(hoofStomp)		
-			return
-		end
+	if FAIO_skillHandler.skillIsCastable(blademail, stunRange, enemy, nil, false) then
+		FAIO_skillHandler.executeSkillOrder(blademail)
+		return
+	end
 
-		if blademail and Ability.IsCastable(blademail, myMana) and NPC.IsEntityInRange(myHero, enemy, stunRange) then 
-			FAIO_centaur.executeSkillOrder(blademail)
-			return
-		end
-
-		if doubleEdge and Ability.IsCastable(doubleEdge, myMana) and NPC.IsEntityInRange(myHero, enemy, 150) and not NPC.IsLinkensProtected(enemy) then 
-			FAIO_centaur.executeSkillOrder(doubleEdge, enemy)
-			return
-		end
-
+	if FAIO_skillHandler.skillIsCastable(doubleEdge, 150, enemy, nil, true) then
+		FAIO_skillHandler.executeSkillOrder(doubleEdge, enemy)
+		return
 	end
 
 	FAIO_centaur.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_ATTACK_TARGET", enemy, nil)

@@ -206,8 +206,7 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 					local pred = 600/1200 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
 					local predPos = FAIO_pudge.castPrediction(myHero, enemy, pred)
 					if FAIO_pudge.AmIFacingPos(myHero, predPos, 10) then
-						Ability.CastTarget(force, myHero)
-						FAIO_pudge.mainTock = os.clock() + 0.05 + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)
+						FAIO_skillHandler.executeSkillOrder(force, myHero)
 						return
 					else
 						FAIO_pudge.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION", nil, predPos)
@@ -233,7 +232,7 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 					local pred = 600/1200 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
 					local predPos = FAIO_pudge.castPrediction(myHero, enemy, pred)
 					if FAIO_pudge.AmIFacingPos(myHero, predPos, 5) then
-						FAIO_pudge.executeSkillOrder(force, myHero)
+						FAIO_skillHandler.executeSkillOrder(force, myHero)
 						return
 					else
 						FAIO_pudge.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION", nil, predPos)
@@ -243,12 +242,10 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 			end
 		end
 
-		if ult and Ability.IsCastable(ult, myMana) then
-			if NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(ult)) then
-				if not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_HEXED) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_STUNNED) then
-					FAIO_pudge.executeSkillOrder(ult, enemy)
-					return
-				end
+		if FAIO_skillHandler.skillIsCastable(ult, Ability.GetCastRange(ult), enemy, nil, true) then
+			if not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_HEXED) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_STUNNED) then
+				FAIO_skillHandler.executeSkillOrder(ult, enemy)
+				return
 			end	
 		end
 
@@ -270,11 +267,11 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 			end
 
 		if Menu.IsEnabled(FAIO_options.optionHeroPudgeHookCombo) and not check and not NPC.HasModifier(myHero, "modifier_item_forcestaff_active") then
-			if Q and Ability.IsCastable(Q, myMana) and NPC.IsEntityInRange(myHero, enemy, Menu.GetValue(FAIO_options.optionHeroPudgeHookComboMaxRange)) and not NPC.IsChannellingAbility(myHero) then
+			local hookPrediction = Ability.GetCastPoint(Q) + NPC.GetTimeToFace(myHero, enemy) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(enemy)) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
+			local hookPredictedPos = FAIO_pudge.castPrediction(myHero, enemy, hookPrediction)
+			if FAIO_skillHandler.skillIsCastable(Q, Menu.GetValue(FAIO_options.optionHeroPudgeHookComboMaxRange), enemy, hookPredictedPos, false) and not NPC.IsChannellingAbility(myHero) then
 				if FAIO_pudge.PudgeHookCollisionChecker(myHero, enemy) and not FAIO_pudge.PudgeHookJukingChecker(myHero, enemy) then
-					local hookPrediction = Ability.GetCastPoint(Q) + NPC.GetTimeToFace(myHero, enemy) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(enemy)) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local hookPredictedPos = FAIO_pudge.castPrediction(myHero, enemy, hookPrediction)
-					FAIO_pudge.executeSkillOrder(Q, enemy, hookPredictedPos)
+					FAIO_skillHandler.executeSkillOrder(Q, enemy, hookPredictedPos)
 					FAIO_pudge.PudgeHookStartTimer = os.clock() + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + FAIO_pudge.TimeToFacePosition(myHero, hookPredictedPos) + FAIO_pudge.humanizerMouseDelayCalc(hookPredictedPos)
 					FAIO_pudge.PudgeHookTargetedPos = hookPredictedPos
 					return
@@ -314,13 +311,11 @@ function FAIO_pudge.hookComboExecute(myHero, myMana, npc)
 	FAIO_pudge.PudgeHookHitTracker(myHero, Q)
 
 	if not Entity.IsSameTeam(myHero, npc) then
-		if ult and Ability.IsCastable(ult, myMana) and Menu.IsEnabled(FAIO_options.optionHeroPudgeHookUlt) then
-			if not NPC.HasState(npc, Enum.ModifierState.MODIFIER_STATE_HEXED) and not NPC.HasState(npc, Enum.ModifierState.MODIFIER_STATE_STUNNED) then
-				if NPC.IsEntityInRange(myHero, FAIO_pudge.PudgeHookTarget, Ability.GetCastRange(ult)) then
-					FAIO_pudge.executeSkillOrder(ult, FAIO_pudge.PudgeHookTarget)
-					return
-				end
-			end
+		if FAIO_skillHandler.skillIsCastable(ult, Ability.GetCastRange(ult), FAIO_pudge.PudgeHookTarget, nil, true) and Menu.IsEnabled(FAIO_options.optionHeroPudgeHookUlt) then
+			if not NPC.HasState(FAIO_pudge.PudgeHookTarget, Enum.ModifierState.MODIFIER_STATE_HEXED) and not NPC.HasState(FAIO_pudge.PudgeHookTarget, Enum.ModifierState.MODIFIER_STATE_STUNNED) then
+				FAIO_skillHandler.executeSkillOrder(ult, FAIO_pudge.PudgeHookTarget)
+				return
+			end	
 		end
 
 		if FAIO_pudge.PudgeHookHit then
@@ -348,25 +343,25 @@ function FAIO_pudge.hookComboExecute(myHero, myMana, npc)
 					local modTiming = FAIO_pudge.PudgeHookTiming(myHero, npc) + 0.1
 					local hookTiming = Ability.GetCastPoint(Q) + NPC.GetTimeToFace(myHero, npc) + ((Entity.GetAbsOrigin(npc):__sub(Entity.GetAbsOrigin(myHero)):Length2D() - 125) / 1450) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(npc)) + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)
 					if GameRules.GetGameTime() > modTiming - hookTiming then
-						FAIO_pudge.executeSkillOrder(Q, npc, Entity.GetAbsOrigin(npc))
+						FAIO_skillHandler.executeSkillOrder(Q, npc, Entity.GetAbsOrigin(npc))
 						FAIO_pudge.PudgeHookStartTimer = os.clock() + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + FAIO_pudge.TimeToFacePosition(myHero, predPos) + FAIO_pudge.humanizerMouseDelayCalc(predPos)
 						return	
 					end
 				else
 					if atos and Ability.IsCastable(atos, myMana) and NPC.IsEntityInRange(myHero, npc, 1150) and not NPC.HasState(npc, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) and not NPC.IsLinkensProtected(npc) then
-						FAIO_pudge.executeSkillOrder(atos, npc)
+						FAIO_skillHandler.executeSkillOrder(atos, npc)
 						FAIO_pudge.PudgeHookTarget = npc
 						return
 					else
 						if atos and Ability.SecondsSinceLastUse(atos) > -1 and Ability.SecondsSinceLastUse(atos) < ((Entity.GetAbsOrigin(myHero) - Entity.GetAbsOrigin(npc)):Length2D() / 1500) + 0.55 then
 							local atosTiming = GameRules.GetGameTime() - math.max(Ability.SecondsSinceLastUse(atos), 0) + ((Entity.GetAbsOrigin(myHero) - Entity.GetAbsOrigin(npc)):Length2D() / 1500) + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) - 0.1
 							if GameRules.GetGameTime() >= atosTiming then
-								FAIO_pudge.executeSkillOrder(Q, npc, Entity.GetAbsOrigin(npc))
+								FAIO_skillHandler.executeSkillOrder(Q, npc, Entity.GetAbsOrigin(npc))
 								FAIO_pudge.PudgeHookStartTimer = os.clock() + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + FAIO_pudge.TimeToFacePosition(myHero, predPos) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(npc))
 								return
 							end	
 						else
-							FAIO_pudge.executeSkillOrder(Q, npc, predPos)
+							FAIO_skillHandler.executeSkillOrder(Q, npc, predPos)
 							FAIO_pudge.PudgeHookStartTimer = os.clock() + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + FAIO_pudge.TimeToFacePosition(myHero, predPos) + FAIO_pudge.humanizerMouseDelayCalc(predPos)
 							FAIO_pudge.PudgeHookTargetedPos = predPos
 							return
@@ -379,7 +374,7 @@ function FAIO_pudge.hookComboExecute(myHero, myMana, npc)
 					local targetForcedPos = Entity.GetAbsOrigin(npc) + targetRotation:Normalized():Scaled(600)
 					Ability.CastTarget(NPC.GetItem(myHero, "item_force_staff", true), npc)
 					FAIO_pudge.PudgeHookTarget = npc
-					FAIO_pudge.executeSkillOrder(Q, npc, targetForcedPos)
+					FAIO_skillHandler.executeSkillOrder(Q, npc, targetForcedPos)
 					FAIO_pudge.PudgeHookStartTimer = os.clock() + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + FAIO_pudge.TimeToFacePosition(myHero, targetForcedPos) + FAIO_pudge.humanizerMouseDelayCalc(predPos)
 					return	
 				end

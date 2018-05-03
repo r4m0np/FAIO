@@ -24,10 +24,10 @@ function FAIO_axe.combo(myHero, enemy)
 			end
 		end
 		if enemy and NPC.IsRunning(enemy) then
-			if not blink then
+			if not NPC.HasItem(myHero, "item_blink", true) then
 				callRange = callRange - 100
 			else
-				if Ability.SecondsSinceLastUse(blink) > 0.75 then
+				if Ability.SecondsSinceLastUse(NPC.GetItem(myHero, "item_blink", true)) > 0.75 then
 					callRange = callRange - 100
 				end
 			end	
@@ -40,7 +40,7 @@ function FAIO_axe.combo(myHero, enemy)
 				if v then
 					if not NPC.IsDormant(v) and not NPC.IsIllusion(v) and Entity.IsAlive(v) then
 						if Entity.GetHealth(v) + NPC.GetHealthRegen(v) < Ability.GetLevelSpecialValueFor(culling, "kill_threshold") and not NPC.IsLinkensProtected(v) then
-							Ability.CastTarget(culling, v)
+							FAIO_skillHandler.executeSkillOrder(culling, enemy, nil)
 							break
 						end
 					end
@@ -48,6 +48,9 @@ function FAIO_axe.combo(myHero, enemy)
 			end
 		end
 	end
+
+	if not enemy then return end
+	if not NPC.IsEntityInRange(myHero, enemy, 3000)	then return end
 
 	local cursorCheck
 	if Menu.IsEnabled(FAIO_options.optionHeroAxeForceBlink) then
@@ -59,8 +62,6 @@ function FAIO_axe.combo(myHero, enemy)
 	else
 		cursorCheck = true
 	end
-	
-	if not NPC.IsEntityInRange(myHero, enemy, 3000)	then return end
 
 	FAIO_itemHandler.itemUsage(myHero, enemy)
 
@@ -83,37 +84,40 @@ end
 
 function FAIO_axe.comboExecute(myHero, enemy, myMana, callRange)
 
-	if FAIO_axe.heroCanCastSpells(myHero, enemy) == true then
+	if Menu.GetValue(FAIO_options.optionHeroAxeJump) == 0 then
+		FAIO_axe.blinkHandler(myHero, enemy, callRange, 0, false)
+	else
+		FAIO_axe.blinkHandler(myHero, enemy, callRange, 0, true, callRange)
+	end
 
-		if Menu.GetValue(FAIO_options.optionHeroAxeJump) == 0 then
-			FAIO_axe.blinkHandler(myHero, enemy, callRange, 0, false)
-		else
-			FAIO_axe.blinkHandler(myHero, enemy, callRange, 0, true, callRange)
+	if FAIO_skillHandler.skillIsCastable(culling, 150, enemy, nil, true) then
+		if Entity.GetHealth(enemy) + NPC.GetHealthRegen(enemy) < Ability.GetLevelSpecialValueFor(culling, "kill_threshold") then
+			FAIO_skillHandler.executeSkillOrder(culling, enemy, nil)
+			return
 		end
+	end
 
-		if culling and Ability.IsCastable(culling, myMana) and NPC.IsEntityInRange(myHero, enemy, 150) then
-			if Entity.GetHealth(enemy) + NPC.GetHealthRegen(enemy) < Ability.GetLevelSpecialValueFor(culling, "kill_threshold") and not NPC.IsLinkensProtected(enemy) then
-				FAIO_axe.executeSkillOrder(culling, enemy)
+	if FAIO_skillHandler.skillIsCastable(call, callRange, enemy, nil, false) then
+		FAIO_skillHandler.executeSkillOrder(call)
+		return
+	end
+
+	if FAIO_skillHandler.skillIsCastable(blademail, callRange, enemy, nil, false) then
+		FAIO_skillHandler.executeSkillOrder(blademail)
+		return
+	end
+
+	if FAIO_skillHandler.skillIsCastable(hunger, Ability.GetCastRange(hunger), enemy, nil, false) then
+		if Ability.IsCastable(hunger, myMana - 120) and not NPC.HasModifier(enemy, "modifier_axe_battle_hunger") then
+			local check = true
+			if NPC.HasItem(myHero, "item_blink", true) and Ability.IsReady(NPC.GetItem(myHero, "item_blink", true)) and not NPC.IsEntityInRange(myHero, enemy, callRange) then
+				check = false
+			end
+		 
+		 	if check then
+				FAIO_skillHandler.executeSkillOrder(hunger, enemy)
 				return
 			end
-		end
-
-		if call and Ability.IsCastable(call, myMana) and NPC.IsEntityInRange(myHero, enemy, callRange) then
-			FAIO_axe.executeSkillOrder(call)
-			return
-		end
-
-		if blademail and Ability.IsCastable(blademail, myMana) and NPC.IsEntityInRange(myHero, enemy, callRange) then 
-			FAIO_axe.executeSkillOrder(blademail)
-			return
-		end
-
-		if hunger and Ability.IsCastable(hunger, myMana - 120) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(hunger)) and not NPC.HasModifier(enemy, "modifier_axe_battle_hunger") then
-			if NPC.HasItem(myHero, "item_blink", true) and Ability.IsReady(NPC.GetItem(myHero, "item_blink", true)) and not NPC.IsEntityInRange(myHero, enemy, callRange) then 
-				return 
-			end
-			FAIO_axe.executeSkillOrder(hunger, enemy)
-			return
 		end
 	end
 
