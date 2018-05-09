@@ -22,6 +22,11 @@ FAIO_options.optionTargetCheckDazzle = Menu.AddOption({ ".FAIO", "1.2 Target sel
 FAIO_options.optionWardAwareness = Menu.AddOption({ ".FAIO", "1.3 Ward awareness" }, "1. Draw indicator for enemy wards {{overall}}", "will show a ward symbol of the specific enemy ward that was planted with timers")
 FAIO_options.optionWardAwarenessRemove = Menu.AddOption({ ".FAIO", "1.3 Ward awareness" }, "2. Auto remove indicator {{overall}}", "will remove indicator if a ward is killed near the indicated location")
 FAIO_options.optionWardAwarenessClickRemove = Menu.AddOption({ ".FAIO", "1.3 Ward awareness" }, "3. Click remove indicator {{overall}}", "will remove indicator if double-clicking on indicator")
+FAIO_options.optionCreepControl = Menu.AddOption({ ".FAIO", "1.4 Creep control" }, "1. Enable creep control {{creep control}}", "will control all controllable units (like dominated creeps, manta illus, ...) with skills while holding down combo button")
+FAIO_options.optionCreepControlMode = Menu.AddOption({ ".FAIO", "1.4 Creep control" }, "2. Creep control style {{creep control}}", "legit mode will take care, that units to where commands are send, are selected in dota (will cycle through control groups like a normal player; fast mode ist simply as fast as possible, but can be seen in replays (e.g. ordering commands to units that are not selected)", 0, 1, 1)
+FAIO_options.optionCreepControlDelay = Menu.AddOption({ ".FAIO", "1.4 Creep control" }, "3. Legit mode delay {{creep control}}", "to lower the number, the faster you cycle through your control group (in ms)", 25, 250, 25)
+
+
 FAIO_options.optionDebugEnable = Menu.AddOption({ ".FAIO" }, "99. ***Debug***", "should be off, just for developers")
 FAIO_options.optionOrbwalkEnable = Menu.AddOption({ ".FAIO", "4. Orbwalker" }, "0. Enabled {{orbwalker}}", "if enabled, you will use orbwalker module instead of regular right clicks")
 FAIO_options.optionOrbwalkOffset = Menu.AddOption({ ".FAIO", "4. Orbwalker" }, "1. Orbwalker offset", "set the offset - the higher the value, the less the distance your hero will move in-between attacks - if value = 0, you go full distance possible in backswing - recommended value: 10-20 because of ping, pathing, blocked pathing etc.", 0, 50, 5)
@@ -540,6 +545,10 @@ end
 FAIO_options.dodgeEnemyHeroSpecialEmber = Menu.AddOption({ ".FAIO", "98. <BETA> DodgeIt", "2. Select myHero skills" }, "ember_spirit_remnant {{dodger}}", "if not enabled, skill will not be used to dodge; only uses skill, if attack can be dodged with this skill")
 
 	-- Menu set values
+
+Menu.SetValueName(FAIO_options.optionCreepControlMode, 0, 'legit mode')
+Menu.SetValueName(FAIO_options.optionCreepControlMode, 1, 'fast mode')
+
 Menu.SetValueName(FAIO_options.optionItemVeil, 0, 'OFF')
 Menu.SetValueName(FAIO_options.optionItemHex, 0, 'OFF')
 Menu.SetValueName(FAIO_options.optionItemBlood, 0, 'OFF')

@@ -204,7 +204,7 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 			if not NPC.IsEntityInRange(myHero, enemy, 1200) then
 				if NPC.IsEntityInRange(myHero, enemy, 1750) then
 					local pred = 600/1200 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local predPos = FAIO_pudge.castPrediction(myHero, enemy, pred)
+					local predPos = FAIO_utility_functions.castPrediction(myHero, enemy, pred)
 					if FAIO_pudge.AmIFacingPos(myHero, predPos, 10) then
 						FAIO_skillHandler.executeSkillOrder(force, myHero)
 						return
@@ -230,7 +230,7 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 			if NPC.IsEntityInRange(myHero, enemy, 725) then
 				if not NPC.IsEntityInRange(myHero, enemy, 550) then
 					local pred = 600/1200 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local predPos = FAIO_pudge.castPrediction(myHero, enemy, pred)
+					local predPos = FAIO_utility_functions.castPrediction(myHero, enemy, pred)
 					if FAIO_pudge.AmIFacingPos(myHero, predPos, 5) then
 						FAIO_skillHandler.executeSkillOrder(force, myHero)
 						return
@@ -268,7 +268,7 @@ function FAIO_pudge.comboExecute(myHero, enemy, myMana, maxInitRange)
 
 		if Menu.IsEnabled(FAIO_options.optionHeroPudgeHookCombo) and not check and not NPC.HasModifier(myHero, "modifier_item_forcestaff_active") then
 			local hookPrediction = Ability.GetCastPoint(Q) + NPC.GetTimeToFace(myHero, enemy) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(enemy)) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-			local hookPredictedPos = FAIO_pudge.castPrediction(myHero, enemy, hookPrediction)
+			local hookPredictedPos = FAIO_utility_functions.castPrediction(myHero, enemy, hookPrediction)
 			if FAIO_skillHandler.skillIsCastable(Q, Menu.GetValue(FAIO_options.optionHeroPudgeHookComboMaxRange), enemy, hookPredictedPos, false) and not NPC.IsChannellingAbility(myHero) then
 				if FAIO_pudge.PudgeHookCollisionChecker(myHero, enemy) and not FAIO_pudge.PudgeHookJukingChecker(myHero, enemy) then
 					FAIO_skillHandler.executeSkillOrder(Q, enemy, hookPredictedPos)
@@ -330,7 +330,7 @@ function FAIO_pudge.hookComboExecute(myHero, myMana, npc)
 
 	local hookRange = Ability.GetCastRange(Q)
 	local pred = Ability.GetCastPoint(Q) + NPC.GetTimeToFace(myHero, npc) + (Entity.GetAbsOrigin(npc):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(npc)) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-	local predPos = FAIO_pudge.castPrediction(myHero, npc, pred)
+	local predPos = FAIO_utility_functions.castPrediction(myHero, npc, pred)
 
 	if not NPC.IsPositionInRange(myHero, predPos, hookRange + 100, 20) then return end
 
@@ -558,7 +558,7 @@ function FAIO_pudge.PudgeHookCollisionChecker(myHero, target)
 	if not target then return false end
 
 	local pred = 0.3 + NPC.GetTimeToFace(myHero, target) + (Entity.GetAbsOrigin(target):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2) + FAIO_pudge.humanizerMouseDelayCalc(Entity.GetAbsOrigin(target))
-	local predPos = FAIO_pudge.castPrediction(myHero, target, pred)
+	local predPos = FAIO_utility_functions.castPrediction(myHero, target, pred)
 
 	local searchRadius = 125
 	local distance = (Entity.GetAbsOrigin(myHero) - predPos):Length2D()
@@ -604,7 +604,7 @@ function FAIO_pudge.PudgeHookCanceller(myHero, target)
 	local timePassed = math.min(os.clock() - FAIO_pudge.PudgeHookStartTimer, 0.3)
 
 	local pred = (0.3 - timePassed) + (Entity.GetAbsOrigin(target):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1450)
-	local predPos = FAIO_pudge.castPrediction(myHero, target, pred)
+	local predPos = FAIO_utility_functions.castPrediction(myHero, target, pred)
 	
 	if (predPos - Entity.GetAbsOrigin(myHero)):Length2D() > hookRange + 100 then return true end
 

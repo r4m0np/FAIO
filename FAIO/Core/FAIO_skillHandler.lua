@@ -1,5 +1,32 @@
 FAIO_skillHandler = {}
 
+function FAIO_skillHandler.skillIsReady(skill)
+
+	local myHero = Heroes.GetLocal()
+		if not myHero then return false end
+
+	if not skill then return false end
+
+	if Ability.GetLevel(skill) < 1 then
+		return false
+	end 
+
+	local myMana = NPC.GetMana(myHero)
+
+	if Ability.GetManaCost(skill) > 0 then
+		if not Ability.IsCastable(skill, myMana) then
+			return false
+		end
+	else
+		if not Ability.IsReady(skill) then
+			return false
+		end
+	end
+
+	return true
+
+end
+
 function FAIO_skillHandler.skillIsCastable(skill, castRange, target, position, linkens)
 
 	local myHero = Heroes.GetLocal()

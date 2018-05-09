@@ -66,7 +66,7 @@ function FAIO_crystal_maiden.comboExecute(myHero, enemy, myMana)
 		end
 	end
 
-	local bestPos = FAIO_crystal_maiden.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
+	local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
 	if bestPos ~= nil then
 		if FAIO_skillHandler.skillIsCastable(Q, Ability.GetCastRange(Q), enemy, bestPos, false) then
 			FAIO_skillHandler.executeSkillOrder(Q, enemy, bestPos)
@@ -81,7 +81,7 @@ end
 
 function FAIO_crystal_maiden.executeUltCombo(myHero, myMana, enemy, ult, glimmer, bkb)
 
-	local bestPos = FAIO_crystal_maiden.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 1220, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 600)
+	local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 1220, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 600)
 	if bestPos ~= nil and #Heroes.InRadius(bestPos, 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY) >= Menu.GetValue(FAIO_options.optionHeroCMUltMin) then
 		if #Heroes.InRadius(bestPos, 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY) == 1 then
 			if NPC.IsPositionInRange(myHero, bestPos, 1150 + 350, 0) then

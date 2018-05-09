@@ -21,6 +21,9 @@ local FAIO_options = require("FAIO/Core/FAIO_options")
 
 local FAIO_skillHandler = require("FAIO/Core/FAIO_skillHandler")
 	setmetatable(FAIO_skillHandler, {__index = FAIO})
+
+local FAIO_utility_functions = require("FAIO/Utility/FAIO_utility_functions")
+	setmetatable(FAIO_utility_functions, {__index = FAIO})
 	
 local FAIO_dodgeIT = require("FAIO/Utility/FAIO_dodgeIT")
 	setmetatable(FAIO_dodgeIT, {__index = FAIO})
@@ -35,6 +38,9 @@ local FAIO_killsteal = require("FAIO/Utility/FAIO_killsteal")
 	setmetatable(FAIO_killsteal, {__index = FAIO})
 
 local FAIO_ward = require("FAIO/Utility/FAIO_ward")
+
+local FAIO_creepControl = require("FAIO/Core/FAIO_creepControl")
+	setmetatable(FAIO_creepControl, {__index = FAIO})
 
 local FAIO_heroScript = {}
 
@@ -344,6 +350,7 @@ function FAIO.resetModules()
 		if string.find(i, "FAIO/") ~= nil then
 			package.loaded[i] = nil
 		end
+		package.loaded["Menu"] = nil
 	end
 
 	FAIO_heroScript = {}
@@ -433,7 +440,7 @@ function FAIO.OnUpdate()
 				elseif heroName == "npc_dota_hero_legion" then
 					heroName = "npc_dota_hero_legion_commander"
 				end
-				if FAIO.utilityIsInTable(FAIO_data.heroList, heroName) then
+				if FAIO_utility_functions.utilityIsInTable(FAIO_data.heroList, heroName) then
 					FAIO.myUnitName = heroName
 				end
 			end
@@ -677,10 +684,6 @@ function FAIO.OnUpdate()
 		FAIO.huskarCombo(myHero, comboTarget)
 	end
 
-	if FAIO.myUnitName == "npc_dota_hero_viper" then
-		FAIO.ViperCombo(myHero, comboTarget)
-	end
-
 --	if FAIO.myUnitName == "npc_dota_hero_pudge" then
 --		FAIO.PudgeCombo(myHero, comboTarget)
 --	end
@@ -726,6 +729,10 @@ function FAIO.OnUpdate()
 
 	if Menu.IsEnabled(FAIO_options.optionItemBlademail) then
 		FAIO_itemHandler.ItemAutoBMUsage(myHero)
+	end
+
+	if Menu.IsEnabled(FAIO_options.optionCreepControl) then
+		FAIO_creepControl.comboHandler(myHero, comboTarget)
 	end
 
 	if FAIO.LockedTarget == nil then
@@ -1225,6 +1232,10 @@ function FAIO.OnPrepareUnitOrders(orders)
 
 	FAIO_itemHandler.OnPrepareUnitOrders(orders)
 
+	if Menu.IsEnabled(FAIO_options.optionCreepControl) then
+		FAIO_creepControl.OnPrepareUnitOrders(orders)
+	end
+
 	if FAIO.myUnitName == "npc_dota_hero_kunkka" and FAIO.kunkkaGhostshipTimer > os.clock() and FAIO.kunkkaXMarkCastTime > os.clock() then
 		local Q = NPC.GetAbilityByIndex(myHero, 0)
 		local Xreturn = NPC.GetAbility(myHero, "kunkka_return")
@@ -1351,47 +1362,11 @@ end
 -- last Hitter
 
 
-function FAIO.utilityRoundNumber(number, digits)
 
-	if not number then return end
 
-  	local mult = 10^(digits or 0)
-  	return math.floor(number * mult + 0.5) / mult
 
-end
 
-function FAIO.utilityGetTableLength(table)
 
-	if not table then return 0 end
-	if next(table) == nil then return 0 end
-
-	local count = 0
-	for i, v in pairs(table) do
-		count = count + 1
-	end
-
-	return count
-
-end
-
-function FAIO.utilityIsInTable(table, arg)
-
-	if not table then return false end
-	if not arg then return false end
-	if next(table) == nil then return false end
-
-	for i, v in pairs(table) do
-		if i == arg then
-			return true
-		end
-		if type(v) ~= 'table' and v == arg then
-			return true
-		end
-	end
-
-	return false
-
-end
 
 -- utility functions
 function FAIO.heroSupported(myHero)
@@ -1486,330 +1461,6 @@ function FAIO.targetChecker(genericEnemyEntity)
 
 	return genericEnemyEntity
 	end	
-end
-
-function FAIO.makeDelay(sec)
-
-	FAIO.delay = sec + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)
-	FAIO.lastTick = os.clock()
-
-end
-
-function FAIO.SleepReady(sleep)
-
-	if (os.clock() - FAIO.lastTick) >= sleep then
-		return true
-	end
-	return false
-
-end
-
-function FAIO.GetAvgLatency()
-
-	local AVGlatency = NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2
-	return AVGlatency
-
-end
-
-function FAIO.CastAnimationDelay(ability)
-
-	if not ability then return end
-
-	local abilityAnimation = Ability.GetCastPoint(ability) + FAIO.GetAvgLatency()
-
-	return abilityAnimation
-
-end
-	
-function FAIO.castLinearPrediction(myHero, enemy, adjustmentVariable)
-
-	if not myHero then return end
-	if not enemy then return end
-
-	local enemyRotation = Entity.GetRotation(enemy):GetVectors()
-		enemyRotation:SetZ(0)
-    	local enemyOrigin = NPC.GetAbsOrigin(enemy)
-		enemyOrigin:SetZ(0)
-
-
-	local cosGamma = (NPC.GetAbsOrigin(myHero) - enemyOrigin):Dot2D(enemyRotation:Scaled(100)) / ((NPC.GetAbsOrigin(myHero) - enemyOrigin):Length2D() * enemyRotation:Scaled(100):Length2D())
-
-		if enemyRotation and enemyOrigin then
-			if not NPC.IsRunning(enemy) then
-				return enemyOrigin
-			else return enemyOrigin:__add(enemyRotation:Normalized():Scaled(FAIO.GetMoveSpeed(enemy) * adjustmentVariable * (1 - cosGamma)))
-			end
-		end
-end
-
-function FAIO.castPrediction(myHero, enemy, adjustmentVariable)
-
-	if not myHero then return end
-	if not enemy then return end
-
-	local enemyRotation = Entity.GetRotation(enemy):GetVectors()
-		enemyRotation:SetZ(0)
-    	local enemyOrigin = NPC.GetAbsOrigin(enemy)
-		enemyOrigin:SetZ(0)
-
-	if enemyRotation and enemyOrigin then
-			if not NPC.IsRunning(enemy) then
-				return enemyOrigin
-			else return enemyOrigin:__add(enemyRotation:Normalized():Scaled(FAIO.GetMoveSpeed(enemy) * adjustmentVariable))
-			end
-	end
-end
-
-function FAIO.isEnemyTurning(enemy)
-
-	if enemy == nil then return true end
-	if not NPC.IsRunning(enemy) then return true end
-
-	local rotationSpeed = Entity.GetAngVelocity(enemy):Length2D()
-	if NPC.IsRunning(enemy) then
-		table.insert(FAIO.rotationTable, rotationSpeed)
-			if #FAIO.rotationTable > (Menu.GetValue(FAIO_options.optionKillStealInvokerTurn) + 1) then
-				table.remove(FAIO.rotationTable, 1)
-			end
-	end
-	
-	if #FAIO.rotationTable < Menu.GetValue(FAIO_options.optionKillStealInvokerTurn) then 
-		return true
-	else
-		local rotationSpeedCounter = 0
-		i = 1
-		repeat
-			rotationSpeedCounter = rotationSpeedCounter + FAIO.rotationTable[#FAIO.rotationTable + 1 - i]
-			i = i + 1
-		until i > Menu.GetValue(FAIO_options.optionKillStealInvokerTurn)
-
-		if rotationSpeedCounter / Menu.GetValue(FAIO_options.optionKillStealInvokerTurn) <= 10 then
-			return false
-		else
-			return true
-		end
-	end
- 
-end
-
-function FAIO.GetMoveSpeed(enemy)
-
-	if not enemy then return end
-
-	local base_speed = NPC.GetBaseSpeed(enemy)
-	local bonus_speed = NPC.GetMoveSpeed(enemy) - NPC.GetBaseSpeed(enemy)
-	local modifierHex
-    	local modSheep = NPC.GetModifier(enemy, "modifier_sheepstick_debuff")
-    	local modLionVoodoo = NPC.GetModifier(enemy, "modifier_lion_voodoo")
-    	local modShamanVoodoo = NPC.GetModifier(enemy, "modifier_shadow_shaman_voodoo")
-
-	if modSheep then
-		modifierHex = modSheep
-	end
-	if modLionVoodoo then
-		modifierHex = modLionVoodoo
-	end
-	if modShamanVoodoo then
-		modifierHex = modShamanVoodoo
-	end
-
-	if modifierHex then
-		if math.max(Modifier.GetDieTime(modifierHex) - GameRules.GetGameTime(), 0) > 0 then
-			return 140 + bonus_speed
-		end
-	end
-
-    	if NPC.HasModifier(enemy, "modifier_invoker_ice_wall_slow_debuff") then 
-		return 100 
-	end
-
-	if NPC.HasModifier(enemy, "modifier_invoker_cold_snap_freeze") or NPC.HasModifier(enemy, "modifier_invoker_cold_snap") then
-		return (base_speed + bonus_speed) * 0.5
-	end
-
-	if NPC.HasModifier(enemy, "modifier_spirit_breaker_charge_of_darkness") then
-		local chargeAbility = NPC.GetAbility(enemy, "spirit_breaker_charge_of_darkness")
-		if chargeAbility then
-			local specialAbility = NPC.GetAbility(enemy, "special_bonus_unique_spirit_breaker_2")
-			if specialAbility then
-				 if Ability.GetLevel(specialAbility) < 1 then
-					return Ability.GetLevel(chargeAbility) * 50 + 550
-				else
-					return Ability.GetLevel(chargeAbility) * 50 + 1050
-				end
-			end
-		end
-	end
-			
-    	return base_speed + bonus_speed
-end
-
-function FAIO.getBestPosition(unitsAround, radius)
-
-	if not unitsAround or #unitsAround < 1 then
-		return 
-	end
-
-	local countEnemies = #unitsAround
-
-	if countEnemies == 1 then 
-		return Entity.GetAbsOrigin(unitsAround[1]) 
-	end
-
-	return FAIO.getMidPoint(unitsAround)
-
---	local maxCount = 1
---	local bestPosition = Entity.GetAbsOrigin(unitsAround[1])
---	for i = 1, (countEnemies - 1) do
---		for j = i + 1, countEnemies do
---			if unitsAround[i] and unitsAround[j] then
---				local pos1 = Entity.GetAbsOrigin(unitsAround[i])
---				local pos2 = Entity.GetAbsOrigin(unitsAround[j])
---				local mid = pos1:__add(pos2):Scaled(0.5)
---
---				local heroesCount = 0
---				for k = 1, countEnemies do
---				--	if NPC.IsPositionInRange(unitsAround[k], mid, radius, 0) then
---					if (Entity.GetAbsOrigin(unitsAround[k]) - mid):Length2D() <= radius then
---						heroesCount = heroesCount + 1
---					end
---				end
---
---				if heroesCount > maxCount then
---					maxCount = heroesCount
---					bestPosition = mid
---				end
---			end
---		end
---	end
---	return bestPosition
-
-end
-
-function FAIO.getMidPoint(entityList)
-
-	if not entityList then return end
-	if #entityList < 1 then return end
-
-	local pts = {}
-		for i, v in ipairs(entityList) do
-			if v and not Entity.IsDormant(v) then
-				local pos = Entity.GetAbsOrigin(v)
-				local posX = pos:GetX()
-				local posY = pos:GetY()
-				table.insert(pts, { x=posX, y=posY })
-			end
-		end
-	
-	local x, y, c = 0, 0, #pts
-
-		if (pts.numChildren and pts.numChildren > 0) then c = pts.numChildren end
-
-	for i = 1, c do
-
-		x = x + pts[i].x
-		y = y + pts[i].y
-
-	end
-
-	return Vector(x/c, y/c, 0)
-
-end
-
-function FAIO.GetMyFaction(myHero)
-
-	if not myHero then return end
-	
-	local radiantFountain = Vector(-7600, -7300, 640)
-	local direFountain = Vector(7800, 7250, 640)
-	
-	local myFountain
-	if myFountain == nil then
-		for i = 1, NPCs.Count() do 
-		local npc = NPCs.Get(i)
-    			if Entity.IsSameTeam(myHero, npc) and NPC.IsStructure(npc) then
-    				if NPC.GetUnitName(npc) ~= nil then
-        				if NPC.GetUnitName(npc) == "dota_fountain" then
-						myFountain = npc
-					end
-				end
-			end
-		end
-	end
-
-	local myFaction
-	if myFaction == nil and myFountain ~= nil then
-		if NPC.IsPositionInRange(myFountain, radiantFountain, 1000, 0) then
-			myFaction = "radiant"
-		else myFaction = "dire"
-		end
-	end
-
-	return myFaction
-
-end
-
-function FAIO.GetMyFountainPos(myHero)
-
-	if not myHero then return end
-
-	local myFaction = FAIO.GetMyFaction(myHero)
-
-	local myFountainPos
-	if myFaction == "radiant" then
-		myFountainPos = Vector(-7600, -7300, 640)
-	else myFountainPos = Vector(7800, 7250, 640)
-	end
-
-	return myFountainPos
-
-end
-
-function FAIO.GetEnemyFountainPos(myHero)
-
-	if not myHero then return end
-
-	local myFaction = FAIO.GetMyFaction(myHero)
-
-	local enemyFountainPos
-	if myFaction == "radiant" then
-		enemyFountainPos = Vector(7800, 7250, 640)
-	else enemyFountainPos = Vector(-7600, -7300, 640)
-	end
-
-	return enemyFountainPos
-
-end
-
-function FAIO.IsCreepAncient(npc)
-
-	if not npc then return false end
-
-	ancientNameList = { 
-		"npc_dota_neutral_black_drake",
-    		"npc_dota_neutral_black_dragon",
-    		"npc_dota_neutral_blue_dragonspawn_sorcerer",
-    		"npc_dota_neutral_blue_dragonspawn_overseer",
-    		"npc_dota_neutral_granite_golem",
-    		"npc_dota_neutral_elder_jungle_stalker",
-    		"npc_dota_neutral_prowler_acolyte",
-    		"npc_dota_neutral_prowler_shaman",
-    		"npc_dota_neutral_rock_golem",
-    		"npc_dota_neutral_small_thunder_lizard",
-    		"npc_dota_neutral_jungle_stalker",
-    		"npc_dota_neutral_big_thunder_lizard",
-    		"npc_dota_roshan" }
-
-	for _, creepName in ipairs(ancientNameList) do
-		if creepName and NPC.GetUnitName(npc) ~= nil then
-			if NPC.GetUnitName(npc) == creepName then
-				return true
-			end
-		end
-	end
-
-	return false
-
 end
 
 function FAIO.GetControllableEntities(myHero)
@@ -2036,33 +1687,6 @@ function FAIO.MantaIlluController(target, position, myHero, tempestDoubleEntity)
 	end	
 end
 
-function FAIO.IsInAbilityPhase(myHero)
-
-	if not myHero then return false end
-
-	local myAbilities = {}
-
-	for i= 0, 10 do
-		local ability = NPC.GetAbilityByIndex(myHero, i)
-		if ability and Entity.IsAbility(ability) and Ability.GetLevel(ability) > 0 then
-			table.insert(myAbilities, ability)
-		end
-	end
-
-	if #myAbilities < 1 then return false end
-
-	for _, v in ipairs(myAbilities) do
-		if v then
-			if Ability.IsInAbilityPhase(v) then
-				return true
-			end
-		end
-	end
-
-	return false
-
-end
-
 function FAIO.GenericMainAttack(myHero, attackType, target, position)
 	
 	if not myHero then return end
@@ -2070,7 +1694,7 @@ function FAIO.GenericMainAttack(myHero, attackType, target, position)
 
 	if FAIO.isHeroChannelling(myHero) == true then return end
 	if FAIO.heroCanCastItems(myHero) == false then return end
-	if FAIO.IsInAbilityPhase(myHero) == true then return end
+	if FAIO_utility_functions.inSkillAnimation(myHero) == true then return end
 
 	if Menu.IsEnabled(FAIO_options.optionOrbwalkEnable) then
 		if target ~= nil then
@@ -2237,13 +1861,15 @@ end
 
 function FAIO.OrbWalker(myHero, enemy)
 
+-- orbwalker needs rewrite; fail timings; cancel attacks due to orb attacks, MAJOR ISSUE
+
 	if not myHero then return end
 	if not enemy then return end
 
 	if NPC.IsChannellingAbility(myHero) then return end
 	if FAIO.isHeroChannelling(myHero) == true then return end
 	if FAIO.heroCanCastItems(myHero) == false then return end
-	if FAIO.IsInAbilityPhase(myHero) == true then return end
+	if FAIO_utility_functions.inSkillAnimation(myHero) == true then return end
 
 	local myMana = NPC.GetMana(myHero)
 
@@ -2294,9 +1920,13 @@ function FAIO.OrbWalker(myHero, enemy)
 		orbWalkSkill = nil
 	end
 
+	if FAIO.heroCanCastSpells(myHero, enemy) == false then
+		orbWalkSkill = nil
+	end
+
 	if NPC.IsRanged(myHero) then
 		if FAIO.AttackProjectileCreate > 0 then
-			if os.clock() > FAIO.AttackAnimationCreate and os.clock() < FAIO.AttackProjectileCreate + attackBackSwing + idleTime then
+			if os.clock() > FAIO.AttackProjectileCreate and os.clock() < FAIO.AttackProjectileCreate + attackBackSwing + idleTime then
 				FAIO.InAttackBackswing = true
 			else
 				FAIO.InAttackBackswing = false
@@ -2328,9 +1958,9 @@ function FAIO.OrbWalker(myHero, enemy)
 		FAIO.InAttackBackswing = false
 	end
 
-	if os.clock() > FAIO.AttackAnimationCreate and os.clock() < FAIO.AttackProjectileCreate then
-		FAIO.InAttackBackswing = false
-	end
+--	if os.clock() > FAIO.AttackAnimationCreate and os.clock() < FAIO.AttackProjectileCreate then
+--		FAIO.InAttackBackswing = false
+--	end
 
 	local breakPoint
 		if NPC.IsRanged(myHero) then
@@ -2383,14 +2013,14 @@ function FAIO.OrbWalker(myHero, enemy)
 			end
 		else
 			if (Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() > breakPoint then
-				if os.clock() - FAIO.OrbwalkerDelay > attackBackSwing + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) then
+			--	if os.clock() - FAIO.OrbwalkerDelay > attackBackSwing + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) then
 					if moveDistance > 50 then
 						local targetVector = Entity.GetAbsOrigin(myHero) + (Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(moveDistance)
 						NPC.MoveTo(myHero, targetVector, false, false)
 						FAIO.OrbwalkerDelay = os.clock()
 						return
 					end
-				end
+		--		end
 	
 			end
 			if Menu.IsEnabled(FAIO_options.optionOrbwalkKiting) then
@@ -2466,7 +2096,7 @@ function FAIO.TimeToFacePosition(myHero, pos)
 
 	local myTurnRate = NPC.GetTurnRate(myHero)
 
-	local turnTime = FAIO.utilityRoundNumber(((0.033 * math.pi / myTurnRate) / 180) * checkAngle, 3)
+	local turnTime = FAIO_utility_functions.utilityRoundNumber(((0.033 * math.pi / myTurnRate) / 180) * checkAngle, 3)
 
 	return turntime or 0
 
@@ -2513,9 +2143,9 @@ function FAIO.GenericLanePusher(npc)
 
 	if not npc or (npc and not Entity.IsAlive(npc)) then return end
 
-	local myFaction = FAIO.GetMyFaction(npc)
-	local myFountainPos = FAIO.GetMyFountainPos(npc)
-	local enemyFountainPos = FAIO.GetEnemyFountainPos(npc)
+	local myFaction = FAIO_utility_functions.GetMyFaction(npc)
+	local myFountainPos = FAIO_utility_functions.GetMyFountainPos(npc)
+	local enemyFountainPos = FAIO_utility_functions.GetEnemyFountainPos(npc)
 
 	local leftCornerPos = Vector(-5750, 6050, 384)
 	local rightCornerPos = Vector(6000, -5800, 384)
@@ -2606,11 +2236,12 @@ function FAIO.ForceBlink(myHero, enemy, range)
 				Ability.CastPosition(blink, Input.GetWorldCursorPos())
 				return
 			else
-				if FAIO.SleepReady(0.1) then
+-- sleep ready dep
+			--	if FAIO.SleepReady(0.1) then
 					Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION, target, Input.GetWorldCursorPos(), ability, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_HERO_ONLY, npc, queue, showEffects)
 					FAIO.lastTick = os.clock()
 					return
-				end
+			--	end
 			end	
 		end
 	end
@@ -2848,7 +2479,7 @@ function FAIO.getEnemyBeShackledWithNPC(myHero, enemy)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroWindrunnerPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local directLineVector = enemyPos + (enemyPos - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(shackleSearchRange)
@@ -2924,7 +2555,7 @@ function FAIO.getEnemyShackledBestPosition(myHero, enemy, dist)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroWindrunnerPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local directLineVector = enemyPos + (enemyPos - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(shackleSearchRange)
@@ -3002,7 +2633,7 @@ function FAIO.getEnemyShackleTrees(myHero, enemy)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroWindrunnerPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local trees = Trees.InRadius(enemyPos, shackleSearchRange, true)
@@ -3037,7 +2668,7 @@ function FAIO.canEnemyBeShackledWithTree(myHero, enemy)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroWindrunnerPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.15 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local directLineVector = enemyPos + (enemyPos - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(shackleSearchRange)
@@ -3097,7 +2728,7 @@ function FAIO.TimberIsTreeInRangeForChain(myHero, enemy)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroTimberPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local remainingDis = chainCastRange - (enemyPos - Entity.GetAbsOrigin(myHero)):Length2D()
@@ -3143,7 +2774,7 @@ function FAIO.TimberAmIhittingWithChain(myHero, enemy, pos)
 
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroTimberPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local checkNum = tonumber(math.floor(chainDistance/150) + 1)
@@ -3175,7 +2806,7 @@ function FAIO.TimberGetEnemyChainTrees(myHero, enemy)
 	
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroTimberPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local remainingDis = chainCastRange - (enemyPos - Entity.GetAbsOrigin(myHero)):Length2D()
@@ -3252,7 +2883,7 @@ function FAIO.TimberGetBestChainPos(myHero, enemy, dist)
 	
 	local enemyPos = Entity.GetAbsOrigin(enemy)
 	if Menu.IsEnabled(FAIO_options.optionHeroTimberPredict) then
-		enemyPos = FAIO.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+		enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 	end
 
 	local remainingDis = chainCastRange - (enemyPos - Entity.GetAbsOrigin(myHero)):Length2D()
@@ -3366,7 +2997,7 @@ function FAIO.TimberGetEscapeChainTreesFountain(myHero)
 	local returnTrees = {}
 	for _, targetTree in ipairs(trees) do		
 		if targetTree then
-			local myFountainPos = FAIO.GetMyFountainPos(myHero)
+			local myFountainPos = FAIO_utility_functions.GetMyFountainPos(myHero)
 			local disTreeToFountain = (Entity.GetAbsOrigin(targetTree) - myFountainPos):Length2D()
 			local dismyHeroToFountain = (myPos - myFountainPos):Length2D()
 			if disTreeToFountain < dismyHeroToFountain then
@@ -3503,7 +3134,7 @@ function FAIO.IsNPCinDanger(myHero, npc)
 
 	if #Entity.GetHeroesInRadius(npc, 1500, Enum.TeamType.TEAM_ENEMY) < 1 then return false end
 	if #Entity.GetHeroesInRadius(myHero, 1500, Enum.TeamType.TEAM_ENEMY) < 1 then return false end
-	if (Entity.GetAbsOrigin(myHero) - FAIO.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
 
 	if NPC.GetUnitName(npc) == "npc_dota_hero_monkey_king" then
 		if NPC.GetAbilityByIndex(npc, 1) ~= nil then
@@ -3876,154 +3507,7 @@ end
 
 
 
-function FAIO.ViperCombo(myHero, enemy)
 
-	if not Menu.IsEnabled(FAIO_options.optionHeroViper) then return end
-
-	local Q = NPC.GetAbilityByIndex(myHero, 0)
- 	local W = NPC.GetAbilityByIndex(myHero, 1)
-	local ult = NPC.GetAbility(myHero, "viper_viper_strike")
-
-	local blink = NPC.GetItem(myHero, "item_blink", true)
-
-	local myMana = NPC.GetMana(myHero)
-
-	FAIO_itemHandler.itemUsage(myHero, enemy)
-
-	if enemy and NPC.IsEntityInRange(myHero, enemy, 3000) then
-		if Menu.IsKeyDown(FAIO_options.optionComboKey) and Entity.IsAlive(enemy) then
- 			if not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) and FAIO.heroCanCastSpells(myHero, enemy) == true then
-				if not NPC.IsEntityInRange(myHero, enemy, 925) then
-					if Menu.IsEnabled(FAIO_options.optionHeroViperBlink) and blink and Ability.IsReady(blink) and NPC.IsEntityInRange(myHero, enemy, 1150 + Menu.GetValue(FAIO_options.optionHeroViperBlinkRange)) then
-						Ability.CastPosition(blink, (Entity.GetAbsOrigin(enemy) + (Entity.GetAbsOrigin(myHero) - Entity.GetAbsOrigin(enemy)):Normalized():Scaled(Menu.GetValue(FAIO_options.optionHeroViperBlinkRange))))
-						return
-					end
-				end		
-
-				if os.clock() > FAIO.lastTick then
-
-					if W and Ability.IsCastable(W, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(W)) and not NPC.HasModifier(enemy, "modifier_viper_nethertoxin") then
-						local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 570, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 285)
-						if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, Ability.GetCastRange(W), 0) then
-							Ability.CastPosition(W, bestPos)
-							FAIO.lastTick = os.clock() + 0.2
-							return
-						end
-					end
-
-					if ult and Ability.IsCastable(ult, myMana) then
-						if Menu.IsEnabled(FAIO_options.optionHeroViperForceUlt) then
-							if not NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(ult)) then
-								FAIO.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION", nil, Entity.GetAbsOrigin(enemy))
-								return
-							else
-								Ability.CastTarget(ult, enemy)
-								FAIO.lastTick = os.clock() + 0.3
-								return
-							end
-
-						else
-							if NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(ult)) then
-								Ability.CastTarget(ult, enemy)
-								FAIO.lastTick = os.clock() + 0.3
-								return
-							end
-						end
-					end
-				end
-			end
-
-			FAIO.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_ATTACK_TARGET", enemy, nil)
-			return
-		end
-	end
-
-	if Menu.IsEnabled(FAIO_options.optionHeroViperHarass) then
-		if Menu.IsKeyDown(FAIO_options.optionHeroViperHarassKey) then
-			FAIO.ViperAutoHarass(myHero, myMana, Q)
-		end
-	end
-
-	if Menu.IsEnabled(FAIO_options.optionHeroViperFarm) then
-		FAIO.ViperFarmHelper(myHero, myMana, W)
-	end
-
-end
-
-function FAIO.ViperAutoHarass(myHero, myMana, Q)
-
-	if not myHero then return end
-	if not Menu.IsEnabled(FAIO_options.optionHeroViperHarass) then return end
-
-	if not Q then return end
-		if Ability.GetLevel(Q) < 1 then return end
-
-	if FAIO.heroCanCastSpells(myHero, enemy) == false then return end
-	if FAIO.isHeroChannelling(myHero) == true then return end 
-	if FAIO.IsHeroInvisible(myHero) == true then return end
-
-	local harassTarget = nil
-		for _, hero in ipairs(NPC.GetHeroesInRadius(myHero, NPC.GetAttackRange(myHero), Enum.TeamType.TEAM_ENEMY)) do
-			if hero and Entity.IsHero(hero) and not Entity.IsDormant(hero) and not NPC.IsIllusion(hero) then 
-				if Entity.IsAlive(hero) and not NPC.HasState(hero, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
-        				harassTarget = hero
-					break
-				end
-      			end			
-		end
-
-	local mousePos = Input.GetWorldCursorPos()
-	if harassTarget ~= nil then
-		if not FAIO_lastHitter.lastHitBackswingChecker(myHero) then
-			Ability.CastTarget(Q, harassTarget)
-			return
-		else
-			if not NPC.IsPositionInRange(myHero, mousePos, 50, 0) then
-				FAIO.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION", nil, mousePos)
-				return
-			end
-		end
-	else
-		if not NPC.IsPositionInRange(myHero, mousePos, 50, 0) then
-			FAIO.GenericMainAttack(myHero, "Enum.UnitOrder.DOTA_UNIT_ORDER_MOVE_TO_POSITION", nil, mousePos)
-			return
-		end
-	end
-
-	return
-
-end
-
-function FAIO.ViperFarmHelper(myHero, myMana, W)
-
-	if not myHero then return end
-	if not Menu.IsEnabled(FAIO_options.optionHeroViperFarm) then return end
-	local myManaPerc = math.floor((myMana / NPC.GetMaxMana(myHero)) * 100)
-		if myManaPerc < Menu.GetValue(FAIO_options.optionHeroViperFarmMana) then return end
-
-	if not W then return end
-		if not Ability.IsCastable(W, myMana) then return end
-
-	if FAIO.heroCanCastSpells(myHero, enemy) == false then return end
-	if FAIO.isHeroChannelling(myHero) == true then return end 
-	if FAIO.IsHeroInvisible(myHero) == true then return end
-
-	for _, creeps in ipairs(Entity.GetUnitsInRadius(myHero, 800, Enum.TeamType.TEAM_ENEMY)) do
-		if creeps and Entity.IsNPC(creeps) and not Entity.IsHero(creeps) and Entity.IsAlive(creeps) and not Entity.IsDormant(creeps) and not NPC.IsWaitingToSpawn(creeps) and NPC.GetUnitName(creeps) ~= "npc_dota_neutral_caster" and NPC.IsCreep(creeps) and NPC.GetUnitName(creeps) ~= nil then
-			if creeps ~= nil and not NPC.IsRunning(creeps) and NPC.IsAttacking(creeps) and not NPC.IsRanged(creeps) and not NPC.HasModifier(creeps, "modifier_viper_nethertoxin") and #Entity.GetUnitsInRadius(creeps, 290, Enum.TeamType.TEAM_FRIEND) >= Menu.GetValue(FAIO_options.optionHeroViperFarmCount) - 1 then
-				local bestPos = FAIO.getBestPosition(NPCs.InRadius(Entity.GetAbsOrigin(creeps), 580, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 290)
-				if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, Ability.GetCastRange(W), 0) then
-
-					Ability.CastPosition(W, bestPos)
-					break
-					return
-				end
-			end
-		end
-	end
-	return
-
-end
 
 function FAIO.PugnaCombo(myHero, enemy)
 
@@ -4063,7 +3547,7 @@ function FAIO.PugnaCombo(myHero, enemy)
 		
 				if Q and Ability.IsCastable(Q, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(Q) + 300) then
 					local pred = 1.1 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local predPos = FAIO.castPrediction(myHero, enemy, pred)
+					local predPos = FAIO_utility_functions.castPrediction(myHero, enemy, pred)
 					if not NPC.IsPositionInRange(myHero, predPos, Ability.GetCastRange(Q), 0) then
 						local myPos = Entity.GetAbsOrigin(myHero)
 						local dist = (myPos - predPos):Length2D()
@@ -4236,7 +3720,7 @@ function FAIO.UndyingCombo(myHero, enemy)
 			if os.clock() > FAIO.lastTick then
 		
 				if Q and Ability.IsCastable(Q, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(Q)) then
-					local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 620, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 310)
+					local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 620, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 310)
 					if bestPos ~= nil then
 						Ability.CastPosition(Q, bestPos)
 						FAIO.lastTick = os.clock() + 0.45
@@ -4451,7 +3935,7 @@ function FAIO.NyxCombo(myHero, enemy)
 		
 				if Q and Ability.IsCastable(Q, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(Q) - 50) then
 					local pred = 0.4 + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1600) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local predPos = FAIO.castLinearPrediction(myHero, enemy, pred)
+					local predPos = FAIO_utility_functions.castLinearPrediction(myHero, enemy, pred)
 					local predPosAdjusted = Entity.GetAbsOrigin(myHero) + (predPos - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(200)
 					Ability.CastPosition(Q, predPosAdjusted)
 					FAIO.lastTick = os.clock() + 0.4
@@ -4511,7 +3995,7 @@ function FAIO.LionCombo(myHero, enemy)
 						FAIO.lastTick = os.clock() + 0.1 + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)
 						return
 					else
-						local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 620, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 310)
+						local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 620, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 310)
 						if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, Ability.GetCastRange(W), 0) then
 							Ability.CastPosition(W, bestPos)
 							FAIO.lastTick = os.clock() + 0.1 + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)
@@ -4522,7 +4006,7 @@ function FAIO.LionCombo(myHero, enemy)
 		
 				if Q and Ability.IsCastable(Q, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(Q) - 50) then
 					local pred = 0.3 + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1600) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					local predPos = FAIO.castLinearPrediction(myHero, enemy, pred)
+					local predPos = FAIO_utility_functions.castLinearPrediction(myHero, enemy, pred)
 					local predPosAdjusted = Entity.GetAbsOrigin(myHero) + (predPos - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(200)
 
 					local hexMod = NPC.GetModifier(enemy, "modifier_lion_voodoo")
@@ -4586,7 +4070,7 @@ function FAIO.WDCombo(myHero, enemy)
 
 				if E and Ability.IsCastable(E, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(E)) then
 					local pred = 0.4 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					Ability.CastPosition(E, FAIO.castPrediction(myHero, enemy, pred))
+					Ability.CastPosition(E, FAIO_utility_functions.castPrediction(myHero, enemy, pred))
 					FAIO.lastTick = os.clock() + 0.35
 					return
 				end
@@ -4696,7 +4180,7 @@ function FAIO.clockwerkCombo(myHero, enemy)
 		if not NPC.IsEntityInRange(myHero, enemy, cogsTargeter) then
 			if HookShot and Ability.IsCastable(HookShot, myMana) and NPC.IsEntityInRange(myHero, enemy, Ability.GetCastRange(HookShot)) and FAIO.clockwerkHookUpValue == true then
 				local hookshotPrediction = Ability.GetCastPoint(HookShot) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / Ability.GetLevelSpecialValueFor(HookShot, "speed")) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(HookShot, FAIO.castLinearPrediction(myHero, enemy, hookshotPrediction))
+				Ability.CastPosition(HookShot, FAIO_utility_functions.castLinearPrediction(myHero, enemy, hookshotPrediction))
 				FAIO.lastTick = os.clock()
 				return
 			end
@@ -5002,7 +4486,7 @@ function FAIO.skywrathComboWithUlt(myHero, myMana, enemy, ancientSeal, arcaneBol
 		elseif NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_HEXED) then
 			if not aghanimsBuffed then
 				local flarePrediction = Ability.GetCastPoint(mysticFlare) + 0.2 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(mysticFlare, FAIO.castPrediction(myHero, enemy, flarePrediction))
+				Ability.CastPosition(mysticFlare, FAIO_utility_functions.castPrediction(myHero, enemy, flarePrediction))
 			else
 				Ability.CastPosition(mysticFlare, FAIO.skywrathComboPredictDoubleUltWhileHexed(myHero, enemy))
 				return
@@ -5010,7 +4494,7 @@ function FAIO.skywrathComboWithUlt(myHero, myMana, enemy, ancientSeal, arcaneBol
 		else
 			if not aghanimsBuffed then
 				local flarePrediction = Ability.GetCastPoint(mysticFlare) + 0.2 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(mysticFlare, FAIO.castPrediction(myHero, enemy, flarePrediction))
+				Ability.CastPosition(mysticFlare, FAIO_utility_functions.castPrediction(myHero, enemy, flarePrediction))
 			else
 				Ability.CastPosition(mysticFlare, FAIO.skywrathComboPredictDoubleUltWhileHexed(myHero, enemy))
 				return
@@ -5256,7 +4740,7 @@ function FAIO.skywrathComboPredictDoubleUltWhileHexed(myHero, enemy)
 	if enemyRotation and enemyOrigin then
 			if not NPC.IsRunning(enemy) then
 				return enemyOrigin + enemyRotation:GetForward():Normalized():Scaled(175)
-			else return enemyOrigin:__add(enemyRotation:GetForward():Normalized():Scaled(FAIO.GetMoveSpeed(enemy) * (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING) + 0.15) + 175))
+			else return enemyOrigin:__add(enemyRotation:GetForward():Normalized():Scaled(FAIO_utility_functions.GetMoveSpeed(enemy) * (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING) + 0.15) + 175))
 			end
 	end
 end
@@ -5306,7 +4790,7 @@ function FAIO.magnusCombo(myHero, enemy)
 		if shockwave and Ability.IsCastable(shockwave, myMana) and Menu.IsEnabled(FAIO_options.optionHeroMagnusShockwaveInCombo) then
 			if NPC.IsEntityInRange(myHero, enemy, 800) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
 				local shockwavePrediction = Ability.GetCastPoint(shockwave) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1050) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(shockwave, FAIO.castLinearPrediction(myHero, enemy, shockwavePrediction))
+				Ability.CastPosition(shockwave, FAIO_utility_functions.castLinearPrediction(myHero, enemy, shockwavePrediction))
 				return
 			end
 		end
@@ -5327,7 +4811,7 @@ function FAIO.magnusCombo(myHero, enemy)
 						return
 					else
 						FAIO.magnusLastPos = Entity.GetAbsOrigin(myHero)
-						local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 280, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 140)
+						local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 280, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 140)
 						if bestPos ~= nil then
 							local distance = (bestPos - Entity.GetAbsOrigin(myHero)):Length2D()
 								if distance > 1100 then
@@ -5365,7 +4849,7 @@ function FAIO.magnusCombo(myHero, enemy)
 		if shockwave and Ability.IsCastable(shockwave, myMana) and Menu.IsEnabled(FAIO_options.optionHeroMagnusShockwaveInCombo) then
 			if NPC.IsEntityInRange(myHero, enemy, 800) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
 				local shockwavePrediction = Ability.GetCastPoint(shockwave) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1050) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(shockwave, FAIO.castLinearPrediction(myHero, enemy, shockwavePrediction))
+				Ability.CastPosition(shockwave, FAIO_utility_functions.castLinearPrediction(myHero, enemy, shockwavePrediction))
 				return
 			end
 		end
@@ -5396,7 +4880,7 @@ function FAIO.magnusCombo(myHero, enemy)
 
 		if not NPC.IsEntityInRange(myHero, enemy, 400) then
 			if gapCloser and Ability.IsCastable(gapCloser, myMana) then
-				local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
+				local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
 				if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, gapCloserRange, 0) then
 					if Ability.IsCastable(reversePolarity, myMana) and not Ability.IsInAbilityPhase(reversePolarity) then
 						if not NPC.HasModifier(myHero, "modifier_magnataur_empower") then
@@ -5576,7 +5060,7 @@ function FAIO.magnusAutoUlt(myHero, myMana, skewer, reversePolarity, shockwave, 
 	end
 
 	if #tempTableHittableTargets >= 1 then
-		local bestPos = FAIO.getBestPosition(tempTableHittableTargets, reverseRadius)
+		local bestPos = FAIO_utility_functions.getBestPosition(tempTableHittableTargets, reverseRadius)
 		if bestPos ~= nil and #Heroes.InRadius(bestPos, reverseRadius, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY) >= Menu.GetValue(FAIO_options.optionHeroMagnusAutoUltCount) then
 			if NPC.IsPositionInRange(myHero, bestPos, gapCloserRange, 0) then
 				if Ability.IsCastable(reversePolarity, myMana) and not Ability.IsInAbilityPhase(reversePolarity) then
@@ -5829,7 +5313,7 @@ function FAIO.DazzleHelperAutoWeave(myHero, myMana, weave)
 	end
 
 	if #tempTableHittableTargets >= 1 then
-		local bestPos = FAIO.getBestPosition(tempTableHittableTargets, weaveRadius)
+		local bestPos = FAIO_utility_functions.getBestPosition(tempTableHittableTargets, weaveRadius)
 		if bestPos ~= nil and #Heroes.InRadius(bestPos, weaveRadius, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY) >= Menu.GetValue(FAIO_options.optionHeroDazzleAutoWeaveCount) then
 			if NPC.IsPositionInRange(myHero, bestPos, weaveRange, 0) then
 				Ability.CastPosition(weave, bestPos)
@@ -6038,7 +5522,7 @@ function FAIO.SFCombo(myHero, enemy)
 					if razeShort and Ability.IsCastable(razeShort, myMana) then
 						local razePos = Entity.GetAbsOrigin(myHero) + Entity.GetRotation(myHero):GetForward():Normalized():Scaled(200)
 						local razePrediction = 0.55 + 0.1 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)			
-						local predictedPos = FAIO.castPrediction(myHero, enemy, razePrediction)
+						local predictedPos = FAIO_utility_functions.castPrediction(myHero, enemy, razePrediction)
 						local disRazePOSpredictedPOS = (razePos - predictedPos):Length2D()
 						if disRazePOSpredictedPOS <= 200 and not Entity.IsTurning(myHero) then
 							if os.clock() - FAIO.lastTick >= 0.55 then
@@ -6051,7 +5535,7 @@ function FAIO.SFCombo(myHero, enemy)
 					if razeMid and Ability.IsCastable(razeMid, myMana) then
 						local razePos = Entity.GetAbsOrigin(myHero) + Entity.GetRotation(myHero):GetForward():Normalized():Scaled(450)
 						local razePrediction = 0.55 + 0.1 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)			
-						local predictedPos = FAIO.castPrediction(myHero, enemy, razePrediction)
+						local predictedPos = FAIO_utility_functions.castPrediction(myHero, enemy, razePrediction)
 						local disRazePOSpredictedPOS = (razePos - predictedPos):Length2D()
 						if disRazePOSpredictedPOS <= 200 and not Entity.IsTurning(myHero) then
 							if os.clock() - FAIO.lastTick >= 0.55 then
@@ -6064,7 +5548,7 @@ function FAIO.SFCombo(myHero, enemy)
 					if razeLong and Ability.IsCastable(razeLong, myMana) then
 						local razePos = Entity.GetAbsOrigin(myHero) + Entity.GetRotation(myHero):GetForward():Normalized():Scaled(700)
 						local razePrediction = 0.55 + 0.1 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)			
-						local predictedPos = FAIO.castPrediction(myHero, enemy, razePrediction)
+						local predictedPos = FAIO_utility_functions.castPrediction(myHero, enemy, razePrediction)
 						local disRazePOSpredictedPOS = (razePos - predictedPos):Length2D()
 						if disRazePOSpredictedPOS <= 200 and not Entity.IsTurning(myHero) then
 							if os.clock() - FAIO.lastTick >= 0.55 then
@@ -6231,7 +5715,7 @@ function FAIO.WillowCombo(myHero, enemy)
 					end
 					if Ability.SecondsSinceLastUse(euls) > -1 and Ability.SecondsSinceLastUse(euls) < 0.5 then
 						if maze and Ability.IsCastable(maze, myMana) then
-							local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
+							local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
 							if bestPos ~= nil then
 								Ability.CastPosition(maze, bestPos)
 								FAIO.lastTick = os.clock()
@@ -6264,7 +5748,7 @@ function FAIO.WillowCombo(myHero, enemy)
 							local dieTime = Modifier.GetDieTime(NPC.GetModifier(enemy, "modifier_rod_of_atos_debuff"))
 							if dieTime - GameRules.GetGameTime() < 0.1 then
 								if FAIO.SleepReady(0.1) and maze and Ability.IsCastable(maze, myMana) then
-									local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
+									local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
 									if bestPos ~= nil then
 										Ability.CastPosition(maze, bestPos)
 										FAIO.lastTick = os.clock()
@@ -6275,7 +5759,7 @@ function FAIO.WillowCombo(myHero, enemy)
 						else
 							if Ability.SecondsSinceLastUse(atos) > ((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1500) + 0.15 then
 								if FAIO.SleepReady(0.1) and maze and Ability.IsCastable(maze, myMana) then
-									local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
+									local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
 									if bestPos ~= nil then
 										Ability.CastPosition(maze, bestPos)
 										FAIO.lastTick = os.clock()
@@ -6286,7 +5770,7 @@ function FAIO.WillowCombo(myHero, enemy)
 						end
 					else
 						if maze and Ability.IsCastable(maze, myMana) then
-							local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
+							local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 850, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 425)
 							if bestPos ~= nil then
 								Ability.CastPosition(maze, bestPos)
 								FAIO.lastTick = os.clock()
@@ -6385,7 +5869,7 @@ function FAIO.SilencerCombo(myHero, enemy)
 					return
 				end
 				if FAIO.SleepReady(0.1) and arcaneCurse and Ability.IsCastable(arcaneCurse, myMana) then
-					local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 840, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 420)
+					local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 840, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 420)
 					if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, 999, 0) then
 						Ability.CastPosition(arcaneCurse, bestPos)
 						FAIO.lastTick = os.clock()
@@ -6673,7 +6157,7 @@ function FAIO.ODKillsteal(myHero, myMana, myAttackRange, arcaneOrb, astralPrison
 			end
 
 			if #tempTableHittableTargets >= 1 then
-				local bestPos = FAIO.getBestPosition(tempTableHittableTargets, (sanityEclipseRadius - 25))
+				local bestPos = FAIO_utility_functions.getBestPosition(tempTableHittableTargets, (sanityEclipseRadius - 25))
 				if bestPos ~= nil and #Heroes.InRadius(bestPos, (sanityEclipseRadius - 25), Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY) >= Menu.GetValue(FAIO_options.optionHeroODKillstealEclipseHittable) then
 					for _, v in ipairs(Heroes.InRadius(bestPos, (sanityEclipseRadius - 25), Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY)) do
 						local targetHP = Entity.GetHealth(v) + NPC.GetHealthRegen(v)
@@ -6687,7 +6171,7 @@ function FAIO.ODKillsteal(myHero, myMana, myAttackRange, arcaneOrb, astralPrison
 			end
 
 			if #tempTableKillableTargets >= Menu.GetValue(FAIO_options.optionHeroODKillstealEclipseKillable) then
-				local bestPos = FAIO.getBestPosition(tempTableHittableTargets, (sanityEclipseRadius - 25))
+				local bestPos = FAIO_utility_functions.getBestPosition(tempTableHittableTargets, (sanityEclipseRadius - 25))
 				if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, 690, 0) then
 					Ability.CastPosition(sanityEclipse, bestPos)
 					return
@@ -7596,7 +7080,7 @@ function FAIO.TimberCombo(myHero, enemy)
 					if not Ability.IsHidden(chakram) and not Ability.IsInAbilityPhase(timberChain) then
 						if chakram and Ability.IsCastable(chakram, myMana) then
 							local chakramPrediction = Ability.GetCastPoint(chakram) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 900) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-							Ability.CastPosition(chakram, FAIO.castLinearPrediction(myHero, enemy, chakramPrediction))
+							Ability.CastPosition(chakram, FAIO_utility_functions.castLinearPrediction(myHero, enemy, chakramPrediction))
 							FAIO.lastCastTime = 1
 							FAIO.makeDelay(0.3)
 							return
@@ -7604,7 +7088,7 @@ function FAIO.TimberCombo(myHero, enemy)
 					elseif not Ability.IsHidden(chakramAgha) and Ability.IsHidden(chakram) and not Ability.IsInAbilityPhase(timberChain) then
 						if chakramAgha and Ability.IsCastable(chakramAgha, myMana) then
 							local chakramPrediction = Ability.GetCastPoint(chakram) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 900) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-							Ability.CastPosition(chakramAgha, FAIO.castLinearPrediction(myHero, enemy, chakramPrediction))
+							Ability.CastPosition(chakramAgha, FAIO_utility_functions.castLinearPrediction(myHero, enemy, chakramPrediction))
 							FAIO.lastCastTime2 = 1
 							FAIO.makeDelay(0.3)
 							return
@@ -7958,7 +7442,7 @@ function FAIO.TACombo(myHero, enemy)
 				Ability.CastNoTarget(refraction)
 			end
 			if psionicTrap and Ability.IsCastable(psionicTrap, myMana) then
-				Ability.CastPosition(psionicTrap, FAIO.castPrediction(myHero, enemy, Ability.GetCastPoint(psionicTrap) + 0.25 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
+				Ability.CastPosition(psionicTrap, FAIO_utility_functions.castPrediction(myHero, enemy, Ability.GetCastPoint(psionicTrap) + 0.25 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
 				FAIO.lastTick = os.clock()
 				return
 			end
@@ -8006,7 +7490,7 @@ function FAIO.isEnemyInSpillRange(myHero, spillNPC, enemy, spillRange)
 
 	if NPC.IsRunning(spillNPC) then return false end
 
-	local enemyPos = FAIO.castPrediction(myHero, enemy, 0.75 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+	local enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.75 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 		enemyPos:SetZ(0)
 
 	local spillNPCpos = Entity.GetAbsOrigin(spillNPC)
@@ -8044,7 +7528,7 @@ function FAIO.TApsiBladesSpillBestPos(myHero, enemy, myAttackRange, searchRange)
 
 	local spillRange = Ability.GetLevelSpecialValueFor(psiBlades, "attack_spill_range")
 
-	local enemyPos = FAIO.castPrediction(myHero, enemy, 0.75 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+	local enemyPos = FAIO_utility_functions.castPrediction(myHero, enemy, 0.75 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 
 	local npcs = Entity.GetUnitsInRadius(myHero, myAttackRange+searchRange, Enum.TeamType.TEAM_BOTH)
 		if next(npcs) == nil then return Vector() end
@@ -8261,7 +7745,7 @@ function FAIO.SlardarCombo(myHero, enemy)
 						Ability.CastPosition(blink, Entity.GetAbsOrigin(enemy))
 						return
 					else
-						local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 660, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 330)
+						local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 660, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 330)
 						if bestPos ~= nil then
 							Ability.CastPosition(blink, bestPos)
 							return
@@ -8418,7 +7902,7 @@ function FAIO.ClinkzAutoUlt(myHero)
 			if Entity.IsHero(creeps) then 
 				return 
 			end
-      			if FAIO.IsCreepAncient(creeps) == false and (NPC.IsCreep(creeps) or NPC.IsLaneCreep(creeps)) and Entity.GetMaxHealth(creeps) >= 550 and Entity.GetHealth(creeps) >= maxHP then
+      			if FAIO_utility_functions.IsCreepAncient(creeps) == false and (NPC.IsCreep(creeps) or NPC.IsLaneCreep(creeps)) and Entity.GetMaxHealth(creeps) >= 550 and Entity.GetHealth(creeps) >= maxHP then
            			maxHPcreep = creeps
             			maxHP = Entity.GetMaxHealth(creeps)
         		end
@@ -9206,7 +8690,7 @@ function FAIO.ArcWardenCombo(myHero, enemy)
 
 							if Menu.IsEnabled(FAIO_options.optionHeroArcWardenSpark) and sparkWraith and Ability.IsCastable(sparkWraith, myMana) then
 								local sparkPrediction = 2.3 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-								local sparkPos = FAIO.castPrediction(myHero, enemy, sparkPrediction)
+								local sparkPos = FAIO_utility_functions.castPrediction(myHero, enemy, sparkPrediction)
 								if NPC.IsPositionInRange(myHero, sparkPos, 1999) then
 									Ability.CastPosition(sparkWraith, sparkPos)
 									FAIO.lastTick = os.clock() + 0.2
@@ -9506,13 +8990,13 @@ function FAIO.ArcWardenFight(myHero, enemy, tempestDoubleEntity, arcWardenAttack
 	end
 
 	if NPC.IsEntityInRange(tempestDoubleEntity, enemy, arcWardenAttackRange) then
-		if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.GetAvgLatency() and necronomicon and Ability.IsCastable(necronomicon, wardenMana) then
+		if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO_utility_functions.GetAvgLatency() and necronomicon and Ability.IsCastable(necronomicon, wardenMana) then
 			Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_NO_TARGET, target, Vector(0,0,0), necronomicon, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 			FAIO.ControlledUnitCastTime = os.clock()
 			FAIO.Debugger(GameRules.GetGameTime(), tempestDoubleEntity, "necrobook", "DOTA_UNIT_ORDER_CAST_NO_TARGET")
 		end
 
-		if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.GetAvgLatency() and bkb and Ability.IsReady(bkb) then
+		if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO_utility_functions.GetAvgLatency() and bkb and Ability.IsReady(bkb) then
 			Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_NO_TARGET, target, Vector(0,0,0), bkb, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 			FAIO.ControlledUnitCastTime = os.clock()
 			FAIO.Debugger(GameRules.GetGameTime(), tempestDoubleEntity, "bkb", "DOTA_UNIT_ORDER_CAST_NO_TARGET")
@@ -9548,7 +9032,7 @@ function FAIO.ArcWardenFight(myHero, enemy, tempestDoubleEntity, arcWardenAttack
 		if NPC.IsEntityInRange(tempestDoubleEntity, enemy, 2000) then
 			if Menu.IsEnabled(FAIO_options.optionHeroArcWardenSpark) and sparkWraith and (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.CastAnimationDelay(sparkWraith) and Ability.IsCastable(sparkWraith, wardenMana) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
 				local sparkPrediction = 2.3 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				local sparkPos = FAIO.castPrediction(tempestDoubleEntity, enemy, sparkPrediction)
+				local sparkPos = FAIO_utility_functions.castPrediction(tempestDoubleEntity, enemy, sparkPrediction)
 				if NPC.IsPositionInRange(tempestDoubleEntity, sparkPos, 1999) then
 					Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_POSITION, target, sparkPos, sparkWraith, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 					FAIO.ControlledUnitCastTime = os.clock()
@@ -9570,8 +9054,8 @@ end
 	
 function FAIO.ArcWardenPort(myHero)
 
-	local enemyFountainPos = FAIO.GetEnemyFountainPos(myHero)
-	local myFountainPos = FAIO.GetMyFountainPos(myHero)
+	local enemyFountainPos = FAIO_utility_functions.GetEnemyFountainPos(myHero)
+	local myFountainPos = FAIO_utility_functions.GetMyFountainPos(myHero)
 
 	if FAIO.arcWardenPushMode then
 		local targetCreep
@@ -9664,12 +9148,12 @@ function FAIO.ArcWardenPush(myHero, tempestDoubleEntity, arcWardenAttackRange)
 
 	local mjollnir = NPC.GetItem(tempestDoubleEntity, "item_mjollnir", true)
 
-	if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.GetAvgLatency() and necronomicon and Ability.IsCastable(necronomicon, wardenMana) then
+	if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO_utility_functions.GetAvgLatency() and necronomicon and Ability.IsCastable(necronomicon, wardenMana) then
 		Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_NO_TARGET, target, Vector(0,0,0), necronomicon, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 		FAIO.ControlledUnitCastTime = os.clock()
 		FAIO.Debugger(GameRules.GetGameTime(), tempestDoubleEntity, "necronomicon", "DOTA_UNIT_ORDER_CAST_NO_TARGET")
 	end
-	if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.GetAvgLatency() and mantaStyle and Ability.IsCastable(mantaStyle, wardenMana) then
+	if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO_utility_functions.GetAvgLatency() and mantaStyle and Ability.IsCastable(mantaStyle, wardenMana) then
 		Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_NO_TARGET, target, Vector(0,0,0), mantaStyle, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 		FAIO.ControlledUnitCastTime = os.clock()
 		FAIO.Debugger(GameRules.GetGameTime(), tempestDoubleEntity, "mantaStyle", "DOTA_UNIT_ORDER_CAST_NO_TARGET")
@@ -9680,7 +9164,7 @@ function FAIO.ArcWardenPush(myHero, tempestDoubleEntity, arcWardenAttackRange)
 			if mjollnir and Ability.IsCastable(mjollnir, wardenMana) then
 				for _, allyCreep in ipairs(Entity.GetUnitsInRadius(tempestDoubleEntity, 825, Enum.TeamType.TEAM_FRIEND)) do
 					if allyCreep and Entity.IsAlive(allyCreep) and NPC.IsLaneCreep(allyCreep) and not NPC.IsRanged(allyCreep) and Entity.GetHealth(allyCreep) > Entity.GetMaxHealth(allyCreep) * 0.6 then
-						if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO.GetAvgLatency() then
+						if (os.clock() - FAIO.ControlledUnitCastTime) > FAIO_utility_functions.GetAvgLatency() then
 							Player.PrepareUnitOrders(Players.GetLocal(), Enum.UnitOrder.DOTA_UNIT_ORDER_CAST_TARGET, allyCreep, Vector(0,0,0), mjollnir, Enum.PlayerOrderIssuer.DOTA_ORDER_ISSUER_PASSED_UNIT_ONLY, tempestDoubleEntity)
 							FAIO.ControlledUnitCastTime = os.clock()
 						end
@@ -10549,7 +10033,7 @@ function FAIO.PuckCombo(myHero, enemy)
 							Ability.CastPosition(blink, Entity.GetAbsOrigin(enemy) + (Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(175))
 							return
 						else
-							local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 350)
+							local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 350)
 							if bestPos ~= nil then
 								Ability.CastPosition(blink, bestPos)
 								return
@@ -10568,7 +10052,7 @@ function FAIO.PuckCombo(myHero, enemy)
 			if not blink and Menu.IsEnabled(FAIO_options.optionHeroPuckOrbInit) then
 				if FAIO.SleepReady(0.15) and illusoryOrb and Ability.IsCastable(illusoryOrb, myMana) then
 					local orbPrediction = Ability.GetCastPoint(illusoryOrb) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 651) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					Ability.CastPosition(illusoryOrb, FAIO.castLinearPrediction(myHero, enemy, orbPrediction))
+					Ability.CastPosition(illusoryOrb, FAIO_utility_functions.castLinearPrediction(myHero, enemy, orbPrediction))
 					FAIO.lastTick = os.clock()
 					FAIO.PuckOrbCastTime = GameRules.GetGameTime()
 					return
@@ -10594,7 +10078,7 @@ function FAIO.PuckCombo(myHero, enemy)
 				end
 				if Menu.IsKeyDown(FAIO_options.optionHeroPuckComboAltKey) then	
 					if FAIO.SleepReady(0.15) and dreamCoil and Ability.IsCastable(dreamCoil, myMana) then
-						local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 350)
+						local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 700, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 350)
 						if bestPos ~= nil then
 							Ability.CastPosition(dreamCoil, bestPos)
 							FAIO.lastTick = os.clock()
@@ -10642,7 +10126,7 @@ function FAIO.PuckPanic(myHero, enemy, myMana, orbIsFlying)
 		if not FAIO.GenericUpValue then
 			if blink and Ability.IsReady(blink) then
 				if Menu.GetValue(FAIO_options.optionHeroPuckPanicDirection) == 0 then
-					Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+					Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 					FAIO.GenericUpValue = true
 					return
 				else
@@ -10681,7 +10165,7 @@ function FAIO.PuckPanic(myHero, enemy, myMana, orbIsFlying)
 			if blink then
 				if Ability.IsReady(blink) then
 					if Menu.GetValue(FAIO_options.optionHeroPuckPanicDirection) == 0 then
-						Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+						Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 						FAIO.GenericUpValue = true
 						return
 					else
@@ -10699,7 +10183,7 @@ function FAIO.PuckPanic(myHero, enemy, myMana, orbIsFlying)
 			end
 			if illusoryOrb and Ability.IsCastable(illusoryOrb, myMana) and (phaseShift and Ability.IsReady(phaseShift)) then
 				if Menu.GetValue(FAIO_options.optionHeroPuckPanicDirection) == 0 then
-					Ability.CastPosition(illusoryOrb, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(500))
+					Ability.CastPosition(illusoryOrb, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(500))
 					Ability.CastNoTarget(phaseShift, true)
 					return
 				else
@@ -10741,7 +10225,7 @@ function FAIO.PuckPanic(myHero, enemy, myMana, orbIsFlying)
 			if not orbIsFlying then
 				if blink and Ability.IsReady(blink) then
 					if Menu.GetValue(FAIO_options.optionHeroPuckPanicDirection) == 0 then
-						Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+						Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 						FAIO.GenericUpValue = true
 						return
 					else
@@ -11642,7 +11126,7 @@ function FAIO.InvokerComboCSSpiritSunstrike(myHero, myMana, enemy, coldSnap, for
 	if not Ability.IsReady(coldSnap) and not Ability.IsReady(forgeSpirit) then
 		if FAIO.SleepReady(0.05) and sunStrike and Ability.IsCastable(sunStrike, myMana) and FAIO.InvokerIsAbilityInvoked(myHero, sunStrike) then
 			if not Entity.IsTurning(enemy) then
-				Ability.CastPosition(sunStrike, FAIO.castPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
+				Ability.CastPosition(sunStrike, FAIO_utility_functions.castPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
 				FAIO.lastTick = os.clock()
 				return
 			end
@@ -11729,7 +11213,7 @@ function FAIO.InvokerComboTornadoEmpIcewall(myHero, myMana, enemy, tornado, emp,
 						else	
 							if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 								local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-								Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+								Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 								FAIO.lastTick = os.clock()
 								FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
 								return
@@ -11746,7 +11230,7 @@ function FAIO.InvokerComboTornadoEmpIcewall(myHero, myMana, enemy, tornado, emp,
 				if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 					if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 						local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-						Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+						Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 						FAIO.lastTick = os.clock()
 						FAIO.lastCastTime = os.clock()
 						FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
@@ -11896,7 +11380,7 @@ function FAIO.InvokerComboTornadoMeteorBlast(myHero, myMana, enemy, tornado, cha
 						else	
 							if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 								local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-								Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+								Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 								FAIO.lastTick = os.clock()
 								return
 							else
@@ -11918,7 +11402,7 @@ function FAIO.InvokerComboTornadoMeteorBlast(myHero, myMana, enemy, tornado, cha
 				if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 					if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 						local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-						Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+						Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 						FAIO.lastTick = os.clock()
 						FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
 						return
@@ -12164,7 +11648,7 @@ function FAIO.InvokerComboAghaTornadoEmpMeteorBlast(myHero, myMana, enemy, torna
 			if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 				if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 					local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+					Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 					FAIO.lastTick = os.clock()
 					FAIO.lastCastTime = os.clock()
 					FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
@@ -12328,7 +11812,7 @@ function FAIO.InvokerComboAghaTornadoSunstrikeMeteorBlast(myHero, myMana, enemy,
 			if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 				if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 					local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+					Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 					FAIO.lastTick = os.clock()
 					FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
 					return
@@ -12493,7 +11977,7 @@ function FAIO.InvokerComboRefresherAghaTornadoSunstrikeMeteorBlast(myHero, myMan
 				if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 					if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 						local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-						Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+						Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 						FAIO.lastTick = os.clock()
 						FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
 						return
@@ -12703,7 +12187,7 @@ function FAIO.InvokerComboRefresherAghaTornadoEmpMeteorBlast(myHero, myMana, ene
 				if FAIO.SleepReady(0.05) and tornado and Ability.IsCastable(tornado, myMana) then
 					if Menu.GetValue(FAIO_options.optionHeroInvokerSkillshotStyle) == 0 then
 						local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-						Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+						Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 						FAIO.lastTick = os.clock()
 						FAIO.lastCastTime = os.clock()
 						FAIO.noItemCastFor((Entity.GetAbsOrigin(enemy) - Entity.GetAbsOrigin(myHero)):Length2D() / 1000 + 0.5)
@@ -13068,7 +12552,7 @@ function FAIO.InvokerSkillProcessingTornado(myHero, myMana, enemy)
 	end
 		
 
-	return { delay, FAIO.castLinearPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_tornado")) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)) }
+	return { delay, FAIO_utility_functions.castLinearPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_tornado")) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)) }
 
 end
 
@@ -13285,7 +12769,7 @@ function FAIO.InvokerSkillProcessingSunstrike(myHero, myMana, enemy)
 		if FAIO.invokerSunstrikeKSdisabledTargetProcess(myHero, enemy) ~= nil and FAIO.invokerSunstrikeKSdisabledTargetProcess(myHero, enemy)[1] > 0 then
 			position = Entity.GetAbsOrigin(enemy)
 		else
-			position = FAIO.castPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
+			position = FAIO_utility_functions.castPrediction(myHero, enemy, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2))
 		end
 	end
 
@@ -14099,7 +13583,7 @@ function FAIO.InvokerFastTornado(myHero, myMana, invoke, enemy)
 			if Menu.GetValue(FAIO_options.optionHeroInvokerTornadoStyle) == 0 then
 				if NPC.IsEntityInRange(myHero, enemy, tornadoRange) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
 					local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-					Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+					Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 					return
 				end
 			else
@@ -14112,7 +13596,7 @@ function FAIO.InvokerFastTornado(myHero, myMana, invoke, enemy)
 		if Menu.GetValue(FAIO_options.optionHeroInvokerTornadoStyle) == 0 then
 			if NPC.IsEntityInRange(myHero, enemy, tornadoRange) and not NPC.HasState(enemy, Enum.ModifierState.MODIFIER_STATE_MAGIC_IMMUNE) then
 				local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-				Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, enemy, tornadoPrediction))
+				Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, enemy, tornadoPrediction))
 				return
 			end
 		else
@@ -14303,18 +13787,18 @@ function FAIO.InvokerCancelBaraCharge(myHero, myMana, enemy, invoke, coldSnap, t
 							end
 						elseif skillSelector == deafeningBlast then
 							local deafeningBlastPrediction = Ability.GetCastPoint(skillSelector) + (Entity.GetAbsOrigin(cancelEnemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1100) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2) + NPC.GetTimeToFace(myHero, cancelEnemy) + 1
-							if NPC.IsRunning(cancelEnemy) and FAIO.GetMoveSpeed(cancelEnemy) > 500 then
+							if NPC.IsRunning(cancelEnemy) and FAIO_utility_functions.GetMoveSpeed(cancelEnemy) > 500 then
 								if not FAIO.InvokerIsAbilityInvoked(myHero, skillSelector) then
 									if invoke and Ability.IsCastable(invoke, myMana) and Ability.IsCastable(skillSelector, myMana - 60) and FAIO.InvokerIsSkillInvokable(myHero, skillSelector) then
 										FAIO.invokerInvokeAbility(myHero, skillSelector)
-										Ability.CastPosition(skillSelector, Entity.GetAbsOrigin(myHero) + (FAIO.castLinearPrediction(myHero, cancelEnemy, deafeningBlastPrediction) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(50), true)
+										Ability.CastPosition(skillSelector, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.castLinearPrediction(myHero, cancelEnemy, deafeningBlastPrediction) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(50), true)
 										FAIO.invokerChannellingKillstealTimer = os.clock()
 										break
 										return
 									end
 								else
 									if Ability.IsCastable(skillSelector, myMana) then
-										Ability.CastPosition(deafeningBlast, FAIO.castLinearPrediction(myHero, cancelEnemy, deafeningBlastPrediction))
+										Ability.CastPosition(deafeningBlast, FAIO_utility_functions.castLinearPrediction(myHero, cancelEnemy, deafeningBlastPrediction))
 										FAIO.invokerChannellingKillstealTimer = os.clock()
 										break
 										return
@@ -14325,18 +13809,18 @@ function FAIO.InvokerCancelBaraCharge(myHero, myMana, enemy, invoke, coldSnap, t
 					end		
 					if skillSelector == tornado then
 						local tornadoPrediction = Ability.GetCastPoint(tornado) + (Entity.GetAbsOrigin(cancelEnemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1000) * 1.25 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2) + 0.75 + NPC.GetTimeToFace(myHero, cancelEnemy)
-						if NPC.IsRunning(cancelEnemy) and FAIO.GetMoveSpeed(cancelEnemy) > 500 and not NPC.IsDormant(cancelEnemy) then
+						if NPC.IsRunning(cancelEnemy) and FAIO_utility_functions.GetMoveSpeed(cancelEnemy) > 500 and not NPC.IsDormant(cancelEnemy) then
 							if not FAIO.InvokerIsAbilityInvoked(myHero, tornado) then
 								if invoke and Ability.IsCastable(invoke, myMana) and Ability.IsCastable(skillSelector, myMana - 60) and FAIO.InvokerIsSkillInvokable(myHero, skillSelector) then
 									FAIO.invokerInvokeAbility(myHero, tornado)
-									Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, cancelEnemy, tornadoPrediction), true)
+									Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, cancelEnemy, tornadoPrediction), true)
 									FAIO.invokerChannellingKillstealTimer = os.clock()
 									break
 									return
 								end
 							else
 								if Ability.IsCastable(tornado, myMana) then
-									Ability.CastPosition(tornado, FAIO.castLinearPrediction(myHero, cancelEnemy, tornadoPrediction))
+									Ability.CastPosition(tornado, FAIO_utility_functions.castLinearPrediction(myHero, cancelEnemy, tornadoPrediction))
 									FAIO.invokerChannellingKillstealTimer = os.clock()
 									break
 									return
@@ -16466,20 +15950,20 @@ function FAIO.AutoSunstrikeKillStealNew(myHero)
 					if not NPC.IsRunning(bestTarget) then
 						return
 					else
-						if FAIO.isEnemyTurning(bestTarget) == false then
+						if FAIO_utility_functions.isEnemyTurning(bestTarget) == false then
 							if Ability.IsReady(sunStrike) and Ability.IsCastable(sunStrike, myMana) then
 								if not FAIO.InvokerIsAbilityInvoked(myHero, sunStrike) then
 									if Menu.IsEnabled(FAIO_options.optionKillStealAutoInvoke) then
 										if invoke and Ability.IsCastable(invoke, myMana) and FAIO.InvokerIsSkillInvokable(myHero, sunStrike) then
 											FAIO.invokerInvokeAbility(myHero, sunStrike)
-											Ability.CastPosition(sunStrike, FAIO.castPrediction(myHero, bestTarget, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)), true)
+											Ability.CastPosition(sunStrike, FAIO_utility_functions.castPrediction(myHero, bestTarget, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)), true)
 											return
 										end
 									else
 										return
 									end
 								else
-									Ability.CastPosition(sunStrike, FAIO.castPrediction(myHero, bestTarget, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
+									Ability.CastPosition(sunStrike, FAIO_utility_functions.castPrediction(myHero, bestTarget, Ability.GetCastPoint(NPC.GetAbility(myHero, "invoker_sun_strike")) + 1.7 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)))
 									return
 								end
 							end
@@ -16789,7 +16273,7 @@ function FAIO.TinkerAmIAtFountain(myHero)
 
 	if not myHero then return false end
 
-	local myFountainPos = FAIO.GetMyFountainPos(myHero)
+	local myFountainPos = FAIO_utility_functions.GetMyFountainPos(myHero)
 	local myPos = Entity.GetAbsOrigin(myHero)
 
 	local dist = (myFountainPos - myPos):Length2D()
@@ -16894,7 +16378,7 @@ function FAIO.GenericJungleTracker(myHero)
 	end
 
 	if next(FAIO.ShrinePositionTable) == nil then
-		if FAIO.GetMyFaction(myHero) == "radiant" then
+		if FAIO_utility_functions.GetMyFaction(myHero) == "radiant" then
 			FAIO.ShrinePositionTable = {	
 				top = Vector(-4389, 211, 0),
 				bot = Vector(1313, -4163, 0)
@@ -16953,7 +16437,7 @@ function FAIO.TinkerGetJunglePos(myHero, march, rearm)
 	local farmDireBottom = {{ Vector(4411, 847, 0), Vector(2554, 81, 0) }}
 	local farmDireTop = {{ Vector(-2000, 4275, 0), Vector(-2677, 4593, 0) }, { Vector(1349, 3317, 0), Vector(-227, 3396, 0) }}
 
-	local myFaction = FAIO.GetMyFaction(myHero)
+	local myFaction = FAIO_utility_functions.GetMyFaction(myHero)
 
 	if next(FAIO.TinkerJungleFarmPos) == nil then
 		if myFaction == "radiant" then
@@ -17037,7 +16521,7 @@ function FAIO.TinkerJungleFarm(myHero, myMana, march, rearm, blink, travels)
 					return
 				else
 					if Ability.IsCastable(travels, myMana) then
-						Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+						Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 						FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 						FAIO.TinkerMarched = 0
 						FAIO.TinkerJungle = false
@@ -17049,7 +16533,7 @@ function FAIO.TinkerJungleFarm(myHero, myMana, march, rearm, blink, travels)
 			end
 		else
 			if Ability.IsCastable(travels, myMana) then
-				Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+				Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 				FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 				FAIO.TinkerMarched = 0
 				FAIO.TinkerJungle = false
@@ -17132,7 +16616,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 				FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 				return
 			else
-				Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+				Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 				FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 				return
 			end
@@ -17226,7 +16710,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 				end
 			else
 				if Ability.IsCastable(travels, myMana) then
-					Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+					Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 					FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 					FAIO.TinkerPorted = false
 					FAIO.TinkerMarched = 0
@@ -17315,7 +16799,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 						return
 					else
 						if Ability.IsCastable(travels, myMana) then
-							Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+							Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 							FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 							FAIO.TinkerMarched = 0
 							if FAIO.TinkerPushMode then
@@ -17335,12 +16819,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 								FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								return
 							else
-								Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+								Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 								FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								return
 							end
 						end
-						Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+						Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 						FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 						FAIO.TinkerMarched = 0
 						FAIO.TinkerPusher = false
@@ -17362,12 +16846,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 									FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 									return
 								else
-									Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+									Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 									FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 									return
 								end
 							end
-							Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+							Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 							FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 							FAIO.TinkerMarched = 0
 							return
@@ -17388,7 +16872,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									else
-										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									end
@@ -17398,7 +16882,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 									FAIO.TinkerMarched = 0
 									return
 								else
-									Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+									Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 									FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 									FAIO.TinkerMarched = 0
 									return
@@ -17419,12 +16903,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									else
-										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									end
 								end
-								Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+								Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 								FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								FAIO.TinkerMarched = 0
 								return
@@ -17450,12 +16934,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 								FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								return
 							else
-								Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+								Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 								FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								return
 							end
 						end
-						Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+						Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 						FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 						FAIO.TinkerMarched = 0
 						FAIO.TinkerPusher = false
@@ -17478,12 +16962,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									else
-										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									end
 								end
-								Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+								Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 								FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 								FAIO.TinkerMarched = 0
 								return
@@ -17505,7 +16989,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									else
-										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+										Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 										FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 										return
 									end
@@ -17515,7 +16999,7 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 									FAIO.TinkerMarched = 0
 									return
 								else
-									Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+									Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 									FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 									FAIO.TinkerMarched = 0
 									return
@@ -17537,12 +17021,12 @@ function FAIO.TinkerPush(myHero, myMana, march, rearm, blink, travels)
 											FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 											return
 										else
-											Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
+											Ability.CastPosition(blink, Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.GetMyFountainPos(myHero) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(1150))
 											FAIO.lastTick = os.clock() + 0.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 											return
 										end
 									end
-									Ability.CastPosition(travels, FAIO.GetMyFountainPos(myHero))
+									Ability.CastPosition(travels, FAIO_utility_functions.GetMyFountainPos(myHero))
 									FAIO.lastTick = os.clock() + 3.05 + NetChannel.GetLatency(Enum.Flow.FLOW_OUTGOING) + NetChannel.GetLatency(Enum.Flow.FLOW_INCOMING)
 									FAIO.TinkerMarched = 0
 									return
@@ -17904,7 +17388,7 @@ function FAIO.TinkerFarmGetSaveSpot(myHero, target, blink)
 	local treeTargetPos = nil
 	if treeCount >= 4 then
 		if targetTree ~= nil then
-			local bestPos = FAIO.getBestPosition(Trees.InRadius(Entity.GetAbsOrigin(targetTree), 400, true), 200)
+			local bestPos = FAIO_utility_functions.getBestPosition(Trees.InRadius(Entity.GetAbsOrigin(targetTree), 400, true), 200)
 			if bestPos ~= nil and bestPos:__sub(targetPos):Length2D() < 1000 and bestPos:__sub(myPos):Length2D() < 1125 then
 				treeTargetPos = bestPos
 			end		
@@ -17918,7 +17402,7 @@ function FAIO.TinkerFarmGetSaveSpot(myHero, target, blink)
 			return treeTargetPos
 		end
 	else
-		local myFountainPos = FAIO.GetMyFountainPos(myHero)
+		local myFountainPos = FAIO_utility_functions.GetMyFountainPos(myHero)
 		local myDist = myPos:__sub(targetPos):Length2D()
 		local gap = 1050 - myDist
 		local searchPosition =  myPos + (myFountainPos - myPos):Normalized():Scaled(gap)
@@ -17979,8 +17463,8 @@ function FAIO.TinkerPort(myHero, blink)
 
 	if not myHero then return end
 
-	local enemyFountainPos = FAIO.GetEnemyFountainPos(myHero)
-	local myFountainPos = FAIO.GetMyFountainPos(myHero)
+	local enemyFountainPos = FAIO_utility_functions.GetEnemyFountainPos(myHero)
+	local myFountainPos = FAIO_utility_functions.GetMyFountainPos(myHero)
 
 	if FAIO.TinkerPushMode then
 		local targetCreep
@@ -18422,30 +17906,7 @@ FAIO.mainTick = 0
 
 
 
-function FAIO.inSkillAnimation(myHero)
 
-	if not myHero then return false end
-
-	local abilities = {}
-
-	if next(abilities) == nil then
-		for i = 0, 25 do
-			local ability = NPC.GetAbilityByIndex(myHero, i)
-			if ability and Entity.IsAbility(ability) then
-				table.insert(abilities, ability)
-			end
-		end
-	end
-
-	for i, v in ipairs(abilities) do
-		if Ability.IsInAbilityPhase(v) then
-			return true
-		end
-	end
-
-	return false
-
-end
 
 function FAIO.comboExecutionTimer(myHero)
 
@@ -18453,7 +17914,7 @@ function FAIO.comboExecutionTimer(myHero)
 
 	if os.clock() < FAIO.mainTick then return false end
 
-	if FAIO.inSkillAnimation(myHero) == true then return false end
+	if FAIO_utility_functions.inSkillAnimation(myHero) == true then return false end
 
 	return true
 
@@ -18476,7 +17937,7 @@ function FAIO.blinkHandler(myHero, enemy, triggerRange, distanceToEnemy, bestPos
 		end
 
 	if targetOrBestPos and effectRange ~= nil and effectRange > 0 then
-		local bestPos = FAIO.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), effectRange * 2, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), effectRange)
+		local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), effectRange * 2, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), effectRange)
 		if bestPos ~= nil and NPC.IsPositionInRange(myHero, bestPos, 1175, 0) then
 			Ability.CastPosition(blink, bestPos)
 			FAIO.mainTick = os.clock() + 0.055 + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)

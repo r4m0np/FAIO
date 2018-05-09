@@ -48,14 +48,14 @@ function FAIO_death_prophet.comboExecute(myHero, enemy, myMana)
 	
 	if NPC.IsEntityInRange(myHero, enemy, carrionRange) then
 		local carrionPrediction = 0.5 + (Entity.GetAbsOrigin(enemy):__sub(Entity.GetAbsOrigin(myHero)):Length2D() / 1100) + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-		local predictedPos = Entity.GetAbsOrigin(myHero) + (FAIO_death_prophet.castLinearPrediction(myHero, enemy, carrionPrediction) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(math.min(Ability.GetCastRange(Q), (Entity.GetAbsOrigin(myHero) - Entity.GetAbsOrigin(enemy)):Length2D()))
+		local predictedPos = Entity.GetAbsOrigin(myHero) + (FAIO_utility_functions.castLinearPrediction(myHero, enemy, carrionPrediction) - Entity.GetAbsOrigin(myHero)):Normalized():Scaled(math.min(Ability.GetCastRange(Q), (Entity.GetAbsOrigin(myHero) - Entity.GetAbsOrigin(enemy)):Length2D()))
 		if FAIO_skillHandler.skillIsCastable(Q, Ability.GetCastRange(Q), enemy, predictedPos, false) then
 			FAIO_skillHandler.executeSkillOrder(Q, enemy, predictedPos)
 			return
 		end
 	end
 
-	local bestPos = FAIO_death_prophet.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
+	local bestPos = FAIO_utility_functions.getBestPosition(Heroes.InRadius(Entity.GetAbsOrigin(enemy), 820, Entity.GetTeamNum(myHero), Enum.TeamType.TEAM_ENEMY), 410)
 	if bestPos ~= nil then
 		if FAIO_skillHandler.skillIsCastable(W, Ability.GetCastRange(W), enemy, bestPos, false) then
 			FAIO_skillHandler.executeSkillOrder(W, enemy, bestPos)

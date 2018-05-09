@@ -45,7 +45,7 @@ function FAIO_ancient_apparition.comboExecute(myHero, enemy, myMana)
 	end
 
 	local pred = 0.87 + (NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) * 2)
-	local predPos = FAIO_ancient_apparition.castPrediction(myHero, enemy, pred)
+	local predPos = FAIO_utility_functions.castPrediction(myHero, enemy, pred)
 	if FAIO_skillHandler.skillIsCastable(W, Ability.GetCastRange(W), enemy, predPos, false) then
 		if not NPC.HasModifier(enemy, "modifier_ice_vortex") then
 			FAIO_skillHandler.executeSkillOrder(W, enemy, predPos)

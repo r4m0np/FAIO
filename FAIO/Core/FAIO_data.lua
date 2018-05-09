@@ -1148,4 +1148,24 @@ FAIO_data.NeutralMainNPChard = {
 	"npc_dota_neutral_dark_troll_warlord"
 		}
 
+FAIO_data.neutralsAbilityListDebuff = {	
+	{ "harpy_storm_chain_lightning", "target", 900 },
+	{ "centaur_khan_war_stomp", "no target", 250 },
+	{ "satyr_trickster_purge", "target", 350 },
+	{ "satyr_soulstealer_mana_burn", "target", 600 },
+	{ "mud_golem_hurl_boulder", "target", 800 },
+	{ "satyr_hellcaller_shockwave", "special", 1200 },
+	{ "polar_furbolg_ursa_warrior_thunder_clap", "no target", 300 },
+	{ "enraged_wildkin_tornado", "position", 500 },
+	{ "dark_troll_warlord_ensnare", "target", 550 },
+	{ "dark_troll_warlord_raise_dead", "special", 600 },
+	{ "necronomicon_archer_purge", "target", 600 }
+		}
+
+FAIO_data.neutralsAbilityListBuff = {
+	"forest_troll_high_priest_heal",
+	"ogre_magi_frost_armor",
+	"big_thunder_lizard_frenzy"
+		}
+
 return FAIO_data

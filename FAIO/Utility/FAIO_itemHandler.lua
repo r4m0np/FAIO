@@ -127,7 +127,7 @@ function FAIO_itemHandler.OnUnitAnimation(animation)
 			local attackRange = NPC.GetAttackRange(animation.unit) + 155
 			if NPC.IsEntityInRange(Heroes.GetLocal(), animation.unit, attackRange) and NPC.FindFacingNPC(animation.unit) == Heroes.GetLocal() then
 				local damage = FAIO_itemHandler.getAdjustedMaxTrueDamage(animation.unit, Heroes.GetLocal())
-				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(animation.unit), time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = animation.castpoint, backswingstart = GameRules.GetGameTime() + animation.castpoint - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(animation.unit) - 0.035, type = "attack", damage = damage, isProjectile = false })
+				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(animation.unit), time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = animation.castpoint, backswingstart = GameRules.GetGameTime() + animation.castpoint - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(animation.unit) - 0.035, type = "attack", damage = damage, isProjectile = false })
 			end
 		else
 			local attackRange = NPC.GetAttackRange(animation.unit) + 264
@@ -135,7 +135,7 @@ function FAIO_itemHandler.OnUnitAnimation(animation)
 				local myProjectedPosition = Entity.GetAbsOrigin(Heroes.GetLocal())
 				local projectileTiming = ((Entity.GetAbsOrigin(animation.unit) - myProjectedPosition):Length2D() - NPC.GetHullRadius(Heroes.GetLocal())) / FAIO_data.attackPointTable[NPC.GetUnitName(animation.unit)][3]
 				local damage = FAIO_itemHandler.getAdjustedMaxTrueDamage(animation.unit, Heroes.GetLocal())
-				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(animation.unit), time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = animation.castpoint, backswingstart = GameRules.GetGameTime() + animation.castpoint - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(animation.unit) - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(animation.unit), projectilestarttime = GameRules.GetGameTime() + animation.castpoint - 0.035, projectilespeed = FAIO_data.attackPointTable[NPC.GetUnitName(animation.unit)][3], isProjectile = true })
+				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(animation.unit), time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = animation.castpoint, backswingstart = GameRules.GetGameTime() + animation.castpoint - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(animation.unit) - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(animation.unit), projectilestarttime = GameRules.GetGameTime() + animation.castpoint - 0.035, projectilespeed = FAIO_data.attackPointTable[NPC.GetUnitName(animation.unit)][3], isProjectile = true })
 			end
 		end
 	end
@@ -196,7 +196,7 @@ function FAIO_itemHandler.OnProjectile(projectile)
 				local myProjectedPosition = Entity.GetAbsOrigin(myHero)
 				local projectileTiming = ((Entity.GetAbsOrigin(projectile.source) - myProjectedPosition):Length() - NPC.GetHullRadius(projectile.target)) / projectile.moveSpeed
 				local damage = FAIO_itemHandler.getAdjustedMaxTrueDamage(projectile.source, Heroes.GetLocal())
-				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(projectile.source), time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = casttime, backswingstart = GameRules.GetGameTime() - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(projectile.source) - casttime - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
+				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(projectile.source), time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = casttime, backswingstart = GameRules.GetGameTime() - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(projectile.source) - casttime - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
 			end
 		else
 			if projectile.target == Heroes.GetLocal() then
@@ -206,14 +206,14 @@ function FAIO_itemHandler.OnProjectile(projectile)
 				local inserted = false
 				for k, info in ipairs(FAIO_itemHandler.armletDamageInstanceTable) do
 					if info and info.instanceindex == Entity.GetIndex(projectile.source) then
-						if math.abs(info.time - FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3)) < NPC.GetAttackTime(projectile.source) * 0.75 then
+						if math.abs(info.time - FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3)) < NPC.GetAttackTime(projectile.source) * 0.75 then
 							inserted = true
 						end
 					end
 				end
 				if not inserted then
 					local casttime = FAIO_data.attackPointTable[NPC.GetUnitName(projectile.source)][1] / (1 + NPC.GetIncreasedAttackSpeed(projectile.source))
-					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(projectile.source), time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = casttime, backswingstart = GameRules.GetGameTime() - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(projectile.source) - casttime - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
+					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = Entity.GetIndex(projectile.source), time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = casttime, backswingstart = GameRules.GetGameTime() - 0.035, backswingend = GameRules.GetGameTime() + NPC.GetAttackTime(projectile.source) - casttime - 0.035, type = "rangeattack", damage = damage, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
 				end	
 			end
 		end
@@ -232,14 +232,14 @@ function FAIO_itemHandler.OnProjectile(projectile)
 						end
 					end
 					if insert then
-						table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 250, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
+						table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 250, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
 					end
 				else
-					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 1000, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
+					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 1000, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime() - 0.035, projectilespeed = projectile.moveSpeed, isProjectile = true })
 				end	
 			else
 				if projectile.name == "medusa_mystic_snake_projectile" or projectile.name == "earthshaker_echoslam" or projectile.name == "bounty_hunter_suriken_toss" or projectile.name == "wyvern_splinter_blast" then
-					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_itemHandler.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 250, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime(), projectilespeed = projectile.moveSpeed, isProjectile = true })
+					table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = projectile.name, time = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + projectileTiming - 0.035 - NetChannel.GetAvgLatency(Enum.Flow.FLOW_INCOMING)), 3), casttime = 0, type = "ability", damage = 250, projectileorigin = Entity.GetAbsOrigin(projectile.source), projectilestarttime = GameRules.GetGameTime(), projectilespeed = projectile.moveSpeed, isProjectile = true })
 				end
 			end
 		end
@@ -1282,11 +1282,11 @@ function FAIO_itemHandler.getAbilityDamageInstances(myHero)
 					local abilityDamage = math.max(Ability.GetDamage(NPC.GetAbility(v, ability)), Ability.GetLevel(NPC.GetAbility(v, ability)) * info[4] * 1.1)
 					local abilityDelay = Ability.GetCastPoint(NPC.GetAbility(v, ability)) + info[6]
 					local projectileInfo = info[5]
-					local curTime = FAIO_itemHandler.utilityRoundNumber(GameRules.GetGameTime(), 3)
+					local curTime = FAIO_utility_functions.utilityRoundNumber(GameRules.GetGameTime(), 3)
 					if projectileInfo < 1 then
 						if FAIO_dodgeIT.dodgeIsTargetMe(myHero, v, abilityRadius, abilityRange) then
 							if #FAIO_itemHandler.armletDamageInstanceTable < 1 then
-								table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_itemHandler.utilityRoundNumber(curTime + abilityDelay, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, isProjectile = false })
+								table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_utility_functions.utilityRoundNumber(curTime + abilityDelay, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, isProjectile = false })
 							else
 								local inserted = false
 								for k, info in ipairs(FAIO_itemHandler.armletDamageInstanceTable) do
@@ -1295,7 +1295,7 @@ function FAIO_itemHandler.getAbilityDamageInstances(myHero)
 									end
 								end
 								if not inserted then
-									table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_itemHandler.utilityRoundNumber(curTime + abilityDelay, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, isProjectile = false })
+									table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_utility_functions.utilityRoundNumber(curTime + abilityDelay, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, isProjectile = false })
 								end
 							end
 						end
@@ -1307,7 +1307,7 @@ function FAIO_itemHandler.getAbilityDamageInstances(myHero)
 									projectileTiming = math.min(projectileTiming, 1)
 								end
 							if #FAIO_itemHandler.armletDamageInstanceTable < 1 then
-								table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_itemHandler.utilityRoundNumber(curTime + abilityDelay + projectileTiming - 0.035, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, projectileorigin = Entity.GetAbsOrigin(v), projectilestarttime = GameRules.GetGameTime() + abilityDelay - 0.035, projectilespeed = projectileInfo, isProjectile = true })
+								table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_utility_functions.utilityRoundNumber(curTime + abilityDelay + projectileTiming - 0.035, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, projectileorigin = Entity.GetAbsOrigin(v), projectilestarttime = GameRules.GetGameTime() + abilityDelay - 0.035, projectilespeed = projectileInfo, isProjectile = true })
 							else
 								local inserted = false
 								for k, info in ipairs(FAIO_itemHandler.armletDamageInstanceTable) do
@@ -1316,7 +1316,7 @@ function FAIO_itemHandler.getAbilityDamageInstances(myHero)
 									end
 								end
 								if not inserted then
-									table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_itemHandler.utilityRoundNumber(curTime + abilityDelay + projectileTiming - 0.035, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, projectileorigin = Entity.GetAbsOrigin(v), projectilestarttime = GameRules.GetGameTime() + abilityDelay - 0.035, projectilespeed = projectileInfo, isProjectile = true })
+									table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = ability, time = FAIO_utility_functions.utilityRoundNumber(curTime + abilityDelay + projectileTiming - 0.035, 3), casttime = abilityDelay, type = "ability", damage = abilityDamage, projectileorigin = Entity.GetAbsOrigin(v), projectilestarttime = GameRules.GetGameTime() + abilityDelay - 0.035, projectilespeed = projectileInfo, isProjectile = true })
 								end
 							end
 						end
@@ -1362,7 +1362,7 @@ function FAIO_itemHandler.armletProcessInstanceTable(myHero)
 						local processImpactTime = GameRules.GetGameTime() + remainingTravelTime
 						if math.abs(info.time - processImpactTime) > 0.01 then
 							local insert = table.remove(FAIO_itemHandler.armletDamageInstanceTable, i)
-							insert.time = FAIO_itemHandler.utilityRoundNumber(processImpactTime, 3)
+							insert.time = FAIO_utility_functions.utilityRoundNumber(processImpactTime, 3)
 							table.insert(FAIO_itemHandler.armletDamageInstanceTable, insert)
 							break
 							return
@@ -1394,7 +1394,7 @@ function FAIO_itemHandler.getDotDamageTicks(myHero)
 
 	for dotMod, tickRate in pairs(FAIO_data.armletDotTickTable) do
 		if NPC.HasModifier(myHero, dotMod) then
-			local creationTime = FAIO_itemHandler.utilityRoundNumber(Modifier.GetCreationTime(NPC.GetModifier(myHero, dotMod)), 3) + 0.035
+			local creationTime = FAIO_utility_functions.utilityRoundNumber(Modifier.GetCreationTime(NPC.GetModifier(myHero, dotMod)), 3) + 0.035
 			local nextTick = creationTime + math.max(math.ceil((GameRules.GetGameTime() - creationTime) / tickRate), 1) * tickRate
 			if #FAIO_itemHandler.armletDamageInstanceTable < 1 then
 				table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = dotMod, time = nextTick, casttime = tickRate, type = "dot", damage = 50, isProjectile = false })
@@ -1426,7 +1426,7 @@ function FAIO_itemHandler.getDotDamageTicks(myHero)
 					local effectRadius = info[1]
 					local tickRate = info[2]
 					if NPC.IsEntityInRange(myHero, v, effectRadius) then
-						local creationTime = FAIO_itemHandler.utilityRoundNumber(Modifier.GetCreationTime(NPC.GetModifier(v, mod)), 2) + 0.035
+						local creationTime = FAIO_utility_functions.utilityRoundNumber(Modifier.GetCreationTime(NPC.GetModifier(v, mod)), 2) + 0.035
 						local nextTick = creationTime + math.ceil((GameRules.GetGameTime() - creationTime) / tickRate) * tickRate
 						if #FAIO_itemHandler.armletDamageInstanceTable < 1 then
 							table.insert(FAIO_itemHandler.armletDamageInstanceTable, { instanceindex = mod, time = nextTick, casttime = tickRate, type = "dot", damage = 50, isProjectile = false })
@@ -1956,7 +1956,7 @@ end
 function FAIO_itemHandler.utilityItemStick(myHero, stick, wand, cheese, faerie)
 
 	if not myHero then return end
-	if (Entity.GetAbsOrigin(myHero) - FAIO_itemHandler.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
 	
 	local myHealthPerc = (Entity.GetHealth(myHero) / Entity.GetMaxHealth(myHero)) * 100
 	
@@ -2043,7 +2043,7 @@ function FAIO_itemHandler.utilityItemMek(myHero, mekansm, myMana)
 	if not myHero then return end
 	if not mekansm then return end
 
-	if (Entity.GetAbsOrigin(myHero) - FAIO_itemHandler.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
 
 	local myHealthPerc = (Entity.GetHealth(myHero) / Entity.GetMaxHealth(myHero)) * 100
 
@@ -2080,7 +2080,7 @@ function FAIO_itemHandler.utilityItemGreaves(myHero, greaves)
 	if not myHero then return end
 	if not greaves then return end
 
-	if (Entity.GetAbsOrigin(myHero) - FAIO_itemHandler.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
 
 	local myHealthPerc = (Entity.GetHealth(myHero) / Entity.GetMaxHealth(myHero)) * 100
 
@@ -2117,7 +2117,7 @@ function FAIO_itemHandler.utilityItemArcane(myHero, arcane)
 	if not myHero then return end
 	if not arcane then return end
 
-	if (Entity.GetAbsOrigin(myHero) - FAIO_itemHandler.GetMyFountainPos(myHero)):Length2D() < 3000 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 3000 then return end
 
 	local myManaMissing = NPC.GetMaxMana(myHero) - NPC.GetMana(myHero)
 
@@ -2162,7 +2162,7 @@ function FAIO_itemHandler.utilityItemMidas(myHero, midas)
 	for _, creeps in ipairs(NPC.GetUnitsInRadius(myHero, 600, Enum.TeamType.TEAM_ENEMY)) do
 		if creeps and not Entity.IsHero(creeps) then
 			local bounty = NPC.GetBountyXP(creeps)
-			if FAIO_itemHandler.IsCreepAncient(creeps) == false then
+			if FAIO_utility_functions.IsCreepAncient(creeps) == false then
 				if (NPC.IsLaneCreep(creeps) or NPC.IsCreep(creeps)) and not NPC.IsDormant(creeps) then
 					if bounty > maxXP then
 						targetCreep = creeps
@@ -2185,7 +2185,7 @@ function FAIO_itemHandler.useDefensiveItems(myHero, enemy)
 	if not myHero then return end
 	if not Menu.IsEnabled(FAIO_options.optionDefensiveItems) then return end
 
-	if (Entity.GetAbsOrigin(myHero) - FAIO_itemHandler.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
+	if (Entity.GetAbsOrigin(myHero) - FAIO_utility_functions.GetMyFountainPos(myHero)):Length2D() < 1500 then return end
 
 	if os.clock() - FAIO_itemHandler.lastDefItemPop < 0.25 then return end
 
@@ -2236,7 +2236,7 @@ function FAIO_itemHandler.useDefensiveItems(myHero, enemy)
 				end
 			end
 			if NPC.HasModifier(myHero, "modifier_teleporting") then
-				local myFountain = FAIO_itemHandler.GetMyFountainPos(myHero)
+				local myFountain = FAIO_utility_functions.GetMyFountainPos(myHero)
 				if not NPC.IsPositionInRange(myHero, myFountain, 2500, 0) then
 					Ability.CastTarget(glimmerCape, myHero)
 					FAIO_itemHandler.lastDefItemPop = os.clock()

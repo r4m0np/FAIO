@@ -32,7 +32,7 @@ function FAIO_lastHitter.OnUnitAnimation(animation)
 						if Menu.IsEnabled(FAIO_options.optionLastHitPredict) then
 							creepDMG = math.ceil(NPC.GetDamageMultiplierVersus(animation.unit, targetCreep) * (((NPC.GetTrueMaximumDamage(animation.unit) + NPC.GetTrueDamage(animation.unit)) / 2) * NPC.GetArmorDamageMultiplier(targetCreep)))
 						end
-					local hitTime = FAIO_lastHitter.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035), 3)
+					local hitTime = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035), 3)
 					local sourceIndex = Entity.GetIndex(animation.unit)
 					if FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] == nil then
 						FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] = {}
@@ -91,7 +91,7 @@ function FAIO_lastHitter.OnUnitAnimation(animation)
 							if Menu.IsEnabled(FAIO_options.optionLastHitPredict) then
 								creepDMG = math.ceil(NPC.GetDamageMultiplierVersus(animation.unit, targetCreep) * (((NPC.GetTrueMaximumDamage(animation.unit) + NPC.GetTrueDamage(animation.unit)) / 2) * NPC.GetArmorDamageMultiplier(targetCreep)))
 							end
-						local hitTime = FAIO_lastHitter.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035), 3)
+						local hitTime = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + animation.castpoint - 0.035), 3)
 						local sourceIndex = Entity.GetIndex(animation.unit)
 						if FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] == nil then
 							FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] = {}
@@ -138,7 +138,7 @@ function FAIO_lastHitter.OnProjectile(projectile)
 								creepDMG = math.ceil(((NPC.GetTrueMaximumDamage(projectile.source) + NPC.GetTrueDamage(projectile.source)) / 2) * 2.5 * NPC.GetArmorDamageMultiplier(targetCreep))
 							end
 						end
-					local hitTime = FAIO_lastHitter.utilityRoundNumber((GameRules.GetGameTime() + travelTime - 0.035), 3)
+					local hitTime = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + travelTime - 0.035), 3)
 					local sourceIndex = Entity.GetIndex(projectile.source)
 					if FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] == nil then
 						FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] = {}
@@ -209,7 +209,7 @@ function FAIO_lastHitter.OnProjectile(projectile)
 							if Menu.IsEnabled(FAIO_options.optionLastHitPredict) then
 								creepDMG = math.ceil(NPC.GetDamageMultiplierVersus(projectile.source, targetCreep) * (((NPC.GetTrueMaximumDamage(projectile.source) + NPC.GetTrueDamage(projectile.source)) / 2) * NPC.GetArmorDamageMultiplier(targetCreep)))
 							end
-						local hitTime = FAIO_lastHitter.utilityRoundNumber((GameRules.GetGameTime() + travelTime - 0.035), 3)
+						local hitTime = FAIO_utility_functions.utilityRoundNumber((GameRules.GetGameTime() + travelTime - 0.035), 3)
 						local sourceIndex = Entity.GetIndex(projectile.source)
 						if FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] == nil then
 							FAIO_lastHitter.lastHitCreepHPPrediction[targetCreep] = {}
@@ -268,7 +268,7 @@ function FAIO_lastHitter.lastHitterExecuteLastHit(myHero, attackPoint)
 			if i and Entity.IsNPC(i) and Entity.IsAlive(i) then
 				if (not Entity.IsSameTeam(myHero, i) and (not NPC.IsTower(i) or (NPC.IsTower(i) and Entity.GetHealth(i) < 159))) or (Entity.IsSameTeam(myHero, i) and ((not NPC.IsTower(i) and Entity.GetHealth(i)/Entity.GetMaxHealth(i) < 0.5) or (NPC.IsTower(i) and Entity.GetHealth(i) < 159))) then
 					if Menu.GetValue(FAIO_options.optionLastHitStyle) == 0 then
-						if FAIO_lastHitter.utilityGetTableLength(FAIO_lastHitter.lastHitCreepHPPredictionTime) <= 1 then
+						if FAIO_utility_functions.utilityGetTableLength(FAIO_lastHitter.lastHitCreepHPPredictionTime) <= 1 then
 							lastHitTarget = i
 							lastHitTime = v
 							break
@@ -485,7 +485,7 @@ function FAIO_lastHitter.lastHitterExecuteLastHit(myHero, attackPoint)
 			end
 		else
 			local target = lastHitTarget
-			local hitTime = FAIO_lastHitter.utilityRoundNumber((lastHitTime + (Menu.GetValue(FAIO_options.optionLastHitOffset) / 20) - NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)), 3)
+			local hitTime = FAIO_utility_functions.utilityRoundNumber((lastHitTime + (Menu.GetValue(FAIO_options.optionLastHitOffset) / 20) - NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING)), 3)
 			if Entity.IsNPC(target) and Entity.IsAlive(target) and not NPC.HasState(target, Enum.ModifierState.MODIFIER_STATE_INVULNERABLE) then
 				if curTime > hitTime - FAIO_lastHitter.lastHitterTimingOffsetter(myHero, target) then
 					if not FAIO_lastHitter.lastHitInAttackAnimation(myHero, attackPoint) then
@@ -663,7 +663,7 @@ function FAIO_lastHitter.lastHitGetAttackerCount(myHero, target)
 			if i == target then
 				local temp = {}
 				for k, l in ipairs(v) do
-					if not FAIO_lastHitter.utilityIsInTable(temp, l[3]) and GameRules.GetGameTime() > l[1] then
+					if not FAIO_utility_functions.utilityIsInTable(temp, l[3]) and GameRules.GetGameTime() > l[1] then
 						table.insert(temp, l[3])
 					end
 				end
@@ -770,7 +770,7 @@ function FAIO_lastHitter.lastHitterTimingOffsetter(myHero, target)
 			moveTime = moveDistance / myMovementSpeed
 		end
 
-	local overallOffset = FAIO_lastHitter.utilityRoundNumber(attackPoint + projectileOffset + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + faceTime + moveTime, 3)
+	local overallOffset = FAIO_utility_functions.utilityRoundNumber(attackPoint + projectileOffset + NetChannel.GetAvgLatency(Enum.Flow.FLOW_OUTGOING) + faceTime + moveTime, 3)
 
 	return overallOffset or 0
 
