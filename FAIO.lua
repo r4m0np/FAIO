@@ -9765,7 +9765,7 @@ function FAIO.MorphBalaceHP(myHero, myMana)
 	local shouldToggleStr = false
 	local allowedDeviation = Menu.GetValue(FAIO_options.optionHeroMorphHPBalanceDeviation)
 
-	if not NPC.HasModifier(myHero, "modifier_fountain_aura_buff") then
+	if NPC.HasModifier(myHero, "modifier_fountain_aura_buff") then return end
 		if targetHP - myHP >= allowedDeviation then
 			if Hero.GetAgility(myHero) > 1 then
 				shouldToggleStr = true
@@ -9785,24 +9785,6 @@ function FAIO.MorphBalaceHP(myHero, myMana)
 		else
 			shouldToggleAGI = false
 		end
-
-		if myMana < 35 then
-			shouldToggleAGI = false
-			shouldToggleStr = false
-		end
-	else
-		if myMAXHP - myHP <= 50 then
-			if myMAXHP - targetHP >= 50 then
-				shouldToggleAGI = true
-			elseif targetHP - myHP >= 50 then
-				shouldToggleStr = true
-			else
-				shouldToggleAGI = false
-				shouldToggleStr = false
-			end
-		end
-	end
-	
 
 	if shouldToggleStr then
 		if not Ability.GetToggleState(morphSTR) then
